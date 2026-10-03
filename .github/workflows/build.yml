@@ -93,7 +93,7 @@ jobs:
           sleep 3
           xscreensaver-command -activate
           sleep 5
-          pgrep -a screensaver-mesh
+          pgrep -af "screensaver-mesh -root"
           xwd -root -silent | convert xwd:- shots/linux-xscreensaver.png
       - name: Package
         run: |
