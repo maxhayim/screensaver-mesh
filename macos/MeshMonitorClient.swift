@@ -153,17 +153,14 @@ final class MeshMonitorClient {
             completion(.failure(APIError(errorDescription: "Bad server address")))
             return
         }
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        session.dataTask(with: request) { data, response, error in
+        let headers = ["Authorization": "Bearer \(config.token)", "Accept": "application/json"]
+        let finish: (Data?, Int, Error?) -> Void = { data, status, error in
             let result: Result<[[String: Any]], Error>
             if let error {
                 result = .failure(error)
-            } else if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                let hint = http.statusCode == 401 ? " (check the API token)" : http.statusCode == 404 ? " (check the source)" : ""
-                result = .failure(APIError(errorDescription: "Server answered \(http.statusCode)\(hint)"))
+            } else if !(200..<300).contains(status) {
+                let hint = status == 401 ? " (check the API token)" : status == 404 ? " (check the source)" : ""
+                result = .failure(APIError(errorDescription: "Server answered \(status)\(hint)"))
             } else if let data,
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let items = json["data"] as? [[String: Any]] {
@@ -172,6 +169,19 @@ final class MeshMonitorClient {
                 result = .failure(APIError(errorDescription: "Not a MeshMonitor API response"))
             }
             DispatchQueue.main.async { completion(result) }
+        }
+
+        // Inside the screen saver host, URLSession refuses plain http:// (App Transport
+        // Security, which a plug-in can't opt out of). Most MeshMonitor servers are plain
+        // http on a home network, so those requests go over a raw connection instead.
+        if url.scheme == "http" {
+            PlainHTTP.get(url, headers: headers, completion: finish)
+            return
+        }
+        var request = URLRequest(url: url)
+        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        session.dataTask(with: request) { data, response, error in
+            finish(data, (response as? HTTPURLResponse)?.statusCode ?? 0, error)
         }.resume()
     }
 }

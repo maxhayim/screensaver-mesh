@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A fake MeshMonitor for trying the saver without a radio.
 
-    python3 tools/mock_meshmonitor.py [port]   (default 8787, token "mm_v1_test")
+    python3 tools/mock_meshmonitor.py [port] [--chunked]   (default 8787, token "mm_v1_test")
 
 Serves /api/v1/sources/<id>/nodes and /messages in MeshMonitor's v1 shape
 and invents a new message every couple of seconds (a third are broadcasts).
@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 TOKEN = "mm_v1_test"
+CHUNKED = "--chunked" in sys.argv  # answer like a reverse proxy that streams responses
 NODES = ["!%08x" % random.getrandbits(32) for _ in range(40)]
 MESSAGES = []
 next_id = 1
@@ -42,6 +43,8 @@ def make_messages():
 
 
 class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def do_GET(self):
         if self.headers.get("Authorization") != "Bearer " + TOKEN:
             return self.send(401, {"success": False, "error": "Unauthorized"})
@@ -62,15 +65,24 @@ class Handler(BaseHTTPRequestHandler):
         raw = json.dumps(body).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(raw)))
-        self.end_headers()
-        self.wfile.write(raw)
+        if CHUNKED:
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            for i in range(0, len(raw), 700):
+                piece = raw[i:i + 700]
+                self.wfile.write(b"%x\r\n%s\r\n" % (len(piece), piece))
+            self.wfile.write(b"0\r\n\r\n")
+        else:
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
 
     def log_message(self, *args):
         pass
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8787
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    port = int(args[0]) if args else 8787
     print("mock MeshMonitor on http://127.0.0.1:%d  token %s" % (port, TOKEN))
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()

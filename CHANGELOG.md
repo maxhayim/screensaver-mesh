@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- **macOS: plain `http://` servers work.** Inside the screen saver, macOS blocks ordinary web requests to `http://` addresses, which is how most MeshMonitor servers on a home network are set up. Mesh now connects to those another way, so live mode works with them.
+- **macOS: a picture in the screen saver list.** Mesh shows a preview of the mesh in System Settings instead of a blank icon.
+
 ## 0.1.0
 
 The first release of Mesh, for macOS, Windows, and Linux.

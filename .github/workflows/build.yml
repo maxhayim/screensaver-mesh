@@ -73,6 +73,28 @@ jobs:
           [ $code -eq 124 ] || { echo "exited with $code"; exit 1; }
           xvfb-run -a timeout 5 build/screensaver-mesh -config /dev/null -root; code=$?
           [ $code -eq 124 ] || { echo "-root exited with $code"; exit 1; }
+      - name: Run inside XScreenSaver
+        run: |
+          sudo apt-get install -y xscreensaver x11-apps imagemagick libxml2-utils
+          xmllint --noout linux/screensaver-mesh.xml
+          export PATH="$PWD/build:$PATH"
+          cat > ~/.xscreensaver <<'XS'
+          mode: one
+          selected: 0
+          splash: False
+          lock: False
+          programs: screensaver-mesh -root -config /dev/null \n\
+
+          XS
+          Xvfb :42 -screen 0 1280x800x24 &
+          export DISPLAY=:42
+          sleep 2
+          xscreensaver -no-splash &
+          sleep 3
+          xscreensaver-command -activate
+          sleep 5
+          pgrep -a screensaver-mesh
+          xwd -root -silent | convert xwd:- shots/linux-xscreensaver.png
       - name: Package
         run: |
           make -C linux tarball
@@ -131,6 +153,45 @@ jobs:
           if ($summary -notmatch 'live 1') { throw "live mode didn't connect" }
           $p = Start-Process bin\Mesh.exe -ArgumentList '/x','2','shots\windows-preview.bmp','300','180','preview' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "preview render failed" }
+      - name: Run as a real screen saver
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function Shot($path) {
+            $b = [System.Windows.Forms.SystemInformation]::VirtualScreen
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Left, $b.Top, 0, 0, $bmp.Size)
+            $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+            $g.Dispose(); $bmp.Dispose()
+          }
+          reg delete HKCU\Software\maxhayim\screensaver-mesh /f 2>$null
+
+          # Full screen (/s): it should keep running until there's input.
+          $p = Start-Process bin\Mesh.exe -ArgumentList '/s' -PassThru
+          Start-Sleep 4
+          Shot shots\windows-fullscreen.png
+          if ($p.HasExited) { throw "/s exited by itself with code $($p.ExitCode)" }
+          Stop-Process $p.Id
+
+          # Preview (/p): draws inside a parent window and quits when that window closes.
+          $form = New-Object System.Windows.Forms.Form
+          $form.Width = 320; $form.Height = 220; $form.StartPosition = 'Manual'; $form.Left = 40; $form.Top = 40
+          $form.Text = 'preview host'
+          $form.Show()
+          $p = Start-Process bin\Mesh.exe -ArgumentList '/p', $form.Handle.ToInt64() -PassThru
+          for ($i = 0; $i -lt 30; $i++) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 100 }
+          Shot shots\windows-preview-window.png
+          if ($p.HasExited) { throw "/p exited by itself with code $($p.ExitCode)" }
+          $form.Close(); $form.Dispose()
+          if (-not $p.WaitForExit(5000)) { Stop-Process $p.Id; throw "/p kept running after its window closed" }
+
+          # Settings dialog (/c).
+          $p = Start-Process bin\Mesh.exe -ArgumentList '/c' -PassThru
+          Start-Sleep 3
+          Shot shots\windows-settings.png
+          if ($p.HasExited) { throw "/c exited by itself with code $($p.ExitCode)" }
+          Stop-Process $p.Id
       - uses: actions/upload-artifact@v5
         with: { name: screenshots-windows, path: shots/ }
 

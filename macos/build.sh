@@ -23,6 +23,7 @@ done
 
 lipo -create build/obj/arm64/Mesh build/obj/x86_64/Mesh -output "$OUT/Contents/MacOS/Mesh"
 sed "s/__VERSION__/$VERSION/g" macos/Info.plist > "$OUT/Contents/Info.plist"
+cp macos/Resources/* "$OUT/Contents/Resources/"
 # Dropbox and Finder attach extended attributes that codesign rejects.
 xattr -cr "$OUT"
 codesign --force --sign - "$OUT"
