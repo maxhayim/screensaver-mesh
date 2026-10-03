@@ -16,7 +16,7 @@ jobs:
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Core tests
         run: |
           mkdir -p build
@@ -39,15 +39,15 @@ jobs:
           VERSION=$(cat VERSION)
           mkdir -p dist
           ditto -c -k --keepParent build/Mesh.saver "dist/Mesh-$VERSION-macos.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with: { name: macos, path: dist/ }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with: { name: screenshots-macos, path: shots/ }
 
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Dependencies
         run: sudo apt-get update && sudo apt-get install -y libx11-dev libcairo2-dev libcurl4-openssl-dev xvfb
       - name: Core tests
@@ -77,15 +77,15 @@ jobs:
         run: |
           make -C linux tarball
           mkdir -p dist && cp build/screensaver-mesh-*.tar.gz dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with: { name: linux, path: dist/ }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with: { name: screenshots-linux, path: shots/ }
 
   windows-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64
       - name: Build Mesh.scr
@@ -96,17 +96,17 @@ jobs:
           mkdir -p dist pkg
           cp build/Mesh.scr windows/INSTALL.txt LICENSE pkg/
           (cd pkg && zip -q "../dist/Mesh-$VERSION-windows.zip" *)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with: { name: windows, path: dist/ }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with: { name: windows-scr, path: build/Mesh.scr }
 
   windows-test:
     needs: windows-build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with: { name: windows-scr, path: bin }
       - name: Render screenshots
         shell: pwsh
@@ -131,7 +131,7 @@ jobs:
           if ($summary -notmatch 'live 1') { throw "live mode didn't connect" }
           $p = Start-Process bin\Mesh.exe -ArgumentList '/x','2','shots\windows-preview.bmp','300','180','preview' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "preview render failed" }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with: { name: screenshots-windows, path: shots/ }
 
   release:
@@ -141,8 +141,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with: { path: artifacts }
       - name: Publish
         env:
