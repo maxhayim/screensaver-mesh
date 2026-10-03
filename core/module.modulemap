@@ -1,0 +1,4 @@
+module MeshCore {
+    header "mesh.h"
+    export *
+}
