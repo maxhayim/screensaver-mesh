@@ -1,7 +1,13 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0
 
-- First version, for macOS: the Mesh screen saver as a native `.saver`.
-- Live mode with MeshMonitor: your nodes are the dots, and every message travels across the mesh.
-- Options sheet: server, API token, source, test connection, color presets and custom colors, and the clock.
+The first release of Mesh, for macOS, Windows, and Linux.
+
+- **Your mesh, live:** connect it to MeshMonitor and the dots are your active nodes. Every message travels across the mesh as a packet, hopping along the links from sender to recipient. Broadcasts ripple out three hops. The sender pulses and nearby nodes get a nudge.
+- **Works without a server:** leave the server blank and it shows a simulated mesh. If MeshMonitor stops answering, it falls back to the simulation on its own.
+- **Your colors:** pick dots, lines, packets, and background, or start from a preset: Default, Meshtastic, Green terminal, Amber terminal, or Paper.
+- **Clock:** the time in the bottom-left corner, in 12- or 24-hour time, or turned off.
+- **Downloads:** a `.saver` for macOS 11 and later (Apple silicon and Intel), a `.scr` for Windows 10 and 11, and an XScreenSaver hack for Linux.
+
+The macOS and Windows builds aren't code-signed. The README explains how to get past the one-time warning.

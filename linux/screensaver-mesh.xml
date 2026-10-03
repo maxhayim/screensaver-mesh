@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<screensaver name="screensaver-mesh" _label="Mesh">
+
+  <command arg="-root"/>
+
+  <string id="server" _label="MeshMonitor server" arg="-server %"/>
+  <string id="source" _label="Source (blank for the first one)" arg="-source %"/>
+
+  <select id="preset">
+    <option id="default"    _label="Default colors"/>
+    <option id="meshtastic" _label="Meshtastic colors"     arg-set="-preset meshtastic"/>
+    <option id="green"      _label="Green terminal colors" arg-set="-preset 'green terminal'"/>
+    <option id="amber"      _label="Amber terminal colors" arg-set="-preset 'amber terminal'"/>
+    <option id="paper"      _label="Paper colors"          arg-set="-preset paper"/>
+  </select>
+
+  <boolean id="clock" _label="Show the clock" arg-unset="-no-clock"/>
+  <boolean id="24h"   _label="24-hour time"   arg-set="-24h"/>
+  <boolean id="slow"  _label="Reduced motion" arg-set="-reduced-motion"/>
+
+  <_description>
+Your Meshtastic mesh, live from MeshMonitor. Nodes drift across the screen, links join the ones in reach, and every message sent on the mesh travels across it as a packet.
+
+Put the API token in ~/.config/screensaver-mesh/config (token=mm_v1_...), not here: options on this page end up on the command line, where other users of this computer can see them. Custom colors go in the same file.
+
+Without a server it shows a simulated mesh.
+
+https://github.com/maxhayim/screensaver-mesh
+  </_description>
+</screensaver>

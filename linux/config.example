@@ -1,0 +1,16 @@
+# ~/.config/screensaver-mesh/config
+# Command-line flags (and the XScreenSaver settings page) override these.
+
+server = https://meshmonitor.example.com
+token = mm_v1_your_token_here
+# source = default
+
+# Colors: pick a preset, or set each one.
+# preset = meshtastic
+# background = #0b0b0a
+# dots = #eeebe4
+# lines = #eeebe4
+# packets = #f06a2a
+
+# clock = yes
+# 24hour = no

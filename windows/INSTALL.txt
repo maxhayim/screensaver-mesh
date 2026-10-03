@@ -1,0 +1,10 @@
+Mesh for Windows
+
+1. Unzip, and keep Mesh.scr somewhere permanent (for example Documents\Mesh).
+2. Right-click Mesh.scr and choose Install.
+   Mesh isn't code-signed, so Windows may say "Windows protected your PC".
+   Click "More info", then "Run anyway". You only need to do this once.
+3. In Screen Saver Settings, choose Mesh and click Settings to add your
+   MeshMonitor server and API token, or leave them empty for the simulated mesh.
+
+More: https://github.com/maxhayim/screensaver-mesh

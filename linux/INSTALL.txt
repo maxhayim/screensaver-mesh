@@ -1,0 +1,11 @@
+Mesh for Linux (XScreenSaver)
+
+1. Install XScreenSaver if you don't have it, e.g. sudo apt install xscreensaver
+   The binary needs libcairo2 and libcurl4 (already there on most desktops).
+2. Run ./install.sh
+3. Put your MeshMonitor server and API token in ~/.config/screensaver-mesh/config
+4. Open xscreensaver-settings and choose Mesh. If it isn't listed, add
+   "screensaver-mesh -root" to the programs: list in ~/.xscreensaver.
+
+Try it in a window first:  ./screensaver-mesh
+More: https://github.com/maxhayim/screensaver-mesh

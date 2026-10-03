@@ -1,0 +1,159 @@
+name: Build
+
+# Every push builds and tests all three platforms. A v* tag also publishes
+# a GitHub release with the downloads attached.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core tests
+        run: |
+          mkdir -p build
+          cc -std=c99 -Wall -Wextra -Icore core/mesh.c tests/test_mesh.c -lm -o build/test_mesh && build/test_mesh
+          cc -std=c99 -Wall -Wextra -Icore core/json.c core/meshmonitor.c tests/test_meshmonitor.c -o build/test_mm && build/test_mm
+      - name: Build Mesh.saver
+        run: macos/build.sh
+      - name: Render screenshots
+        run: |
+          swiftc tools/preview.swift -o build/preview -framework ScreenSaver
+          mkdir -p shots
+          build/preview build/Mesh.saver shots/macos-simulated.png 3
+          python3 tools/mock_meshmonitor.py 8787 &
+          sleep 1
+          defaults -currentHost write com.maxhayim.screensaver-mesh server "http://127.0.0.1:8787"
+          defaults -currentHost write com.maxhayim.screensaver-mesh token mm_v1_test
+          build/preview build/Mesh.saver shots/macos-live.png 9
+      - name: Package
+        run: |
+          VERSION=$(cat VERSION)
+          mkdir -p dist
+          ditto -c -k --keepParent build/Mesh.saver "dist/Mesh-$VERSION-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with: { name: macos, path: dist/ }
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-macos, path: shots/ }
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libcairo2-dev libcurl4-openssl-dev xvfb
+      - name: Core tests
+        run: |
+          mkdir -p build
+          cc -std=c99 -Wall -Wextra -Icore core/mesh.c tests/test_mesh.c -lm -o build/test_mesh && build/test_mesh
+          cc -std=c99 -Wall -Wextra -Icore core/json.c core/meshmonitor.c tests/test_meshmonitor.c -o build/test_mm && build/test_mm
+      - name: Build
+        run: make -C linux
+      - name: Render screenshots
+        run: |
+          mkdir -p shots
+          build/screensaver-mesh -config /dev/null -render 3 shots/linux-simulated.png
+          python3 tools/mock_meshmonitor.py 8787 &
+          sleep 1
+          build/screensaver-mesh -config /dev/null -server http://127.0.0.1:8787 -token mm_v1_test \
+            -preset meshtastic -24h -render 9 shots/linux-live.png | tee live.txt
+          grep -q "live 1" live.txt
+      - name: Run under X for a few seconds
+        run: |
+          set +e
+          xvfb-run -a timeout 5 build/screensaver-mesh -config /dev/null; code=$?
+          [ $code -eq 124 ] || { echo "exited with $code"; exit 1; }
+          xvfb-run -a timeout 5 build/screensaver-mesh -config /dev/null -root; code=$?
+          [ $code -eq 124 ] || { echo "-root exited with $code"; exit 1; }
+      - name: Package
+        run: |
+          make -C linux tarball
+          mkdir -p dist && cp build/screensaver-mesh-*.tar.gz dist/
+      - uses: actions/upload-artifact@v4
+        with: { name: linux, path: dist/ }
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-linux, path: shots/ }
+
+  windows-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64
+      - name: Build Mesh.scr
+        run: windows/build.sh
+      - name: Package
+        run: |
+          VERSION=$(cat VERSION)
+          mkdir -p dist pkg
+          cp build/Mesh.scr windows/INSTALL.txt LICENSE pkg/
+          (cd pkg && zip -q "../dist/Mesh-$VERSION-windows.zip" *)
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: dist/ }
+      - uses: actions/upload-artifact@v4
+        with: { name: windows-scr, path: build/Mesh.scr }
+
+  windows-test:
+    needs: windows-build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: windows-scr, path: bin }
+      - name: Render screenshots
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force shots | Out-Null
+          # Opening a .scr goes through its registered verb, which can drop arguments; run a copy as .exe.
+          Copy-Item bin\Mesh.scr bin\Mesh.exe
+          $p = Start-Process bin\Mesh.exe -ArgumentList '/x','3','shots\windows-simulated.bmp' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "simulated render failed: $($p.ExitCode)" }
+          Get-Content shots\windows-simulated.bmp.txt
+
+          $mock = Start-Process python -ArgumentList 'tools/mock_meshmonitor.py','8787' -PassThru
+          Start-Sleep 2
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v server /t REG_SZ /d http://127.0.0.1:8787 /f
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v token /t REG_SZ /d mm_v1_test /f
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v 24hour /t REG_DWORD /d 1 /f
+          $p = Start-Process bin\Mesh.exe -ArgumentList '/x','9','shots\windows-live.bmp' -Wait -PassThru
+          Stop-Process $mock.Id
+          if ($p.ExitCode -ne 0) { throw "live render failed: $($p.ExitCode)" }
+          $summary = Get-Content shots\windows-live.bmp.txt
+          $summary
+          if ($summary -notmatch 'live 1') { throw "live mode didn't connect" }
+          $p = Start-Process bin\Mesh.exe -ArgumentList '/x','2','shots\windows-preview.bmp','300','180','preview' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "preview render failed" }
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-windows, path: shots/ }
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, linux, windows-build, windows-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          # The notes are this version's section of CHANGELOG.md.
+          awk -v v="$VERSION" '
+            /^## / { if (found) exit; if (index($0, "## " v) == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "No CHANGELOG section for $VERSION"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" --title "Mesh $VERSION" --notes-file notes.md \
+            artifacts/macos/* artifacts/windows/* artifacts/linux/*

@@ -1,0 +1,72 @@
+#include <windows.h>
+#include "resource.h"
+
+/* Common controls 6 (modern dialog look) and DPI awareness. */
+1 24 "mesh.manifest"
+
+/* Screen Saver Settings lists the saver by string 1. */
+STRINGTABLE
+BEGIN
+    IDS_DESCRIPTION "Mesh"
+END
+
+1 VERSIONINFO
+FILEVERSION MESH_VERSION_COMMA
+PRODUCTVERSION MESH_VERSION_COMMA
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Max Hayim"
+            VALUE "FileDescription", "Mesh screen saver"
+            VALUE "FileVersion", MESH_VERSION_STRING
+            VALUE "LegalCopyright", "(c) 2026 Max Hayim. MIT License."
+            VALUE "OriginalFilename", "Mesh.scr"
+            VALUE "ProductName", "Mesh"
+            VALUE "ProductVersion", MESH_VERSION_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+IDD_SETTINGS DIALOGEX 0, 0, 300, 236
+STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_SHELLFONT
+CAPTION "Mesh Settings"
+FONT 9, "Segoe UI", 400, 0, 1
+BEGIN
+    LTEXT           "MeshMonitor", -1, 10, 8, 120, 10
+    RTEXT           "Server", -1, 10, 24, 50, 10
+    EDITTEXT        IDC_SERVER, 66, 22, 224, 13, ES_AUTOHSCROLL
+    RTEXT           "API token", -1, 10, 41, 50, 10
+    EDITTEXT        IDC_TOKEN, 66, 39, 224, 13, ES_AUTOHSCROLL | ES_PASSWORD
+    RTEXT           "Source", -1, 10, 58, 50, 10
+    EDITTEXT        IDC_SOURCE, 66, 56, 224, 13, ES_AUTOHSCROLL
+    PUSHBUTTON      "Test connection", IDC_TEST, 66, 74, 70, 14
+    LTEXT           "", IDC_STATUS, 142, 77, 148, 10, SS_ENDELLIPSIS
+    LTEXT           "Leave the server empty to show the simulated mesh. Create an API token in MeshMonitor under User Settings.", -1, 66, 92, 224, 18
+
+    LTEXT           "Colors", -1, 10, 118, 120, 10
+    RTEXT           "Preset", -1, 10, 134, 50, 10
+    COMBOBOX        IDC_PRESET, 66, 132, 120, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "", IDC_BACKGROUND, 66, 150, 40, 14, BS_OWNERDRAW
+    PUSHBUTTON      "", IDC_DOTS, 112, 150, 40, 14, BS_OWNERDRAW
+    PUSHBUTTON      "", IDC_LINES, 158, 150, 40, 14, BS_OWNERDRAW
+    PUSHBUTTON      "", IDC_PACKETS, 204, 150, 40, 14, BS_OWNERDRAW
+    CTEXT           "Background", -1, 60, 166, 52, 10
+    CTEXT           "Dots", -1, 112, 166, 40, 10
+    CTEXT           "Lines", -1, 158, 166, 40, 10
+    CTEXT           "Packets", -1, 204, 166, 40, 10
+
+    LTEXT           "Clock", -1, 10, 184, 120, 10
+    AUTOCHECKBOX    "Show the clock", IDC_CLOCK, 66, 184, 80, 10
+    AUTOCHECKBOX    "24-hour time", IDC_24HOUR, 152, 184, 80, 10
+
+    DEFPUSHBUTTON   "OK", IDOK, 186, 212, 50, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 240, 212, 50, 14
+END
