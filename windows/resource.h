@@ -14,3 +14,5 @@
 #define IDC_PACKETS 1010
 #define IDC_CLOCK 1011
 #define IDC_24HOUR 1012
+#define IDC_LABEL 1013
+#define IDC_LABEL_TEXT 1014

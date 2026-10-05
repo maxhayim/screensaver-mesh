@@ -27,7 +27,11 @@ typedef struct {
     char background[16], dots[16], lines[16], packets[16];
     int show_clock;
     int use_24_hour;
+    int label;            /* what's under the clock: MM_LABEL_* */
+    char label_text[128]; /* custom text, UTF-8 */
 } mm_settings;
+
+enum { MM_LABEL_MESH, MM_LABEL_USER, MM_LABEL_CUSTOM };
 
 typedef struct {
     const char *name;
@@ -41,6 +45,12 @@ void mm_settings_default(mm_settings *s);
 int mm_settings_live(const mm_settings *s);
 /* Apply one "key=value" (or "key value") setting; unknown keys are ignored. */
 void mm_settings_set(mm_settings *s, const char *key, const char *value);
+/*
+ * The text under the clock: "Mesh", the user's name, or custom text, with
+ * " · live" added in live mode. `user_name` is the platform's name for the
+ * current user (may be NULL). Writes UTF-8.
+ */
+void mm_label(char *out, size_t size, const mm_settings *s, const char *user_name, int live);
 /* Read a config file of key=value lines; # starts a comment. Returns 0 if unreadable. */
 int mm_settings_load_file(mm_settings *s, const char *path);
 /* Index of the preset matching the four colors, or -1 for custom. */

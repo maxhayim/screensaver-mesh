@@ -64,7 +64,8 @@ jobs:
           python3 tools/mock_meshmonitor.py 8787 &
           sleep 1
           build/screensaver-mesh -config /dev/null -server http://127.0.0.1:8787 -token mm_v1_test \
-            -preset meshtastic -24h -render 9 shots/linux-live.png | tee live.txt
+            -preset meshtastic -24h -label "KO4XYZ · Doral" -render 9 shots/linux-live.png | tee live.txt
+          build/screensaver-mesh -config /dev/null -label-user -render 1 shots/linux-label-user.png
           grep -q "live 1" live.txt
       - name: Run under X for a few seconds
         run: |
@@ -145,6 +146,8 @@ jobs:
           reg add HKCU\Software\maxhayim\screensaver-mesh /v server /t REG_SZ /d http://127.0.0.1:8787 /f
           reg add HKCU\Software\maxhayim\screensaver-mesh /v token /t REG_SZ /d mm_v1_test /f
           reg add HKCU\Software\maxhayim\screensaver-mesh /v 24hour /t REG_DWORD /d 1 /f
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v label /t REG_SZ /d custom /f
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v label_text /t REG_SZ /d "KO4XYZ · Doral" /f
           $p = Start-Process bin\Mesh.exe -ArgumentList '/x','9','shots\windows-live.bmp' -Wait -PassThru
           Stop-Process $mock.Id
           if ($p.ExitCode -ne 0) { throw "live render failed: $($p.ExitCode)" }
@@ -153,6 +156,9 @@ jobs:
           if ($summary -notmatch 'live 1') { throw "live mode didn't connect" }
           $p = Start-Process bin\Mesh.exe -ArgumentList '/x','2','shots\windows-preview.bmp','300','180','preview' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "preview render failed" }
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v label /t REG_SZ /d user /f
+          $p = Start-Process bin\Mesh.exe -ArgumentList '/x','1','shots\windows-label-user.bmp','600','300' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "label render failed" }
       - name: Run as a real screen saver
         shell: pwsh
         run: |
@@ -186,7 +192,9 @@ jobs:
           $form.Close(); $form.Dispose()
           if (-not $p.WaitForExit(5000)) { Stop-Process $p.Id; throw "/p kept running after its window closed" }
 
-          # Settings dialog (/c).
+          # Settings dialog (/c), with a custom label so the new row shows filled in.
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v label /t REG_SZ /d custom /f
+          reg add HKCU\Software\maxhayim\screensaver-mesh /v label_text /t REG_SZ /d "KO4XYZ · Doral" /f
           $p = Start-Process bin\Mesh.exe -ArgumentList '/c' -PassThru
           Start-Sleep 3
           Shot shots\windows-settings.png

@@ -2,6 +2,8 @@
 
 ## 0.1.1
 
+- **Your own label under the clock.** Choose what the line under the time says: Mesh, your name, or your own text, like a call sign. In the settings on macOS and Windows, and in the config file or XScreenSaver settings on Linux.
+
 - **macOS: plain `http://` servers work.** Inside the screen saver, macOS blocks ordinary web requests to `http://` addresses, which is how most MeshMonitor servers on a home network are set up. Mesh now connects to those another way, so live mode works with them.
 - **macOS: a picture in the screen saver list.** Mesh shows a preview of the mesh in System Settings instead of a blank icon.
 

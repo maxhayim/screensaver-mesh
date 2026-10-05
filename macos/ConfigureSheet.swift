@@ -17,7 +17,12 @@ final class ConfigureSheetController: NSObject {
     private let packetsWell = NSColorWell()
     private let clockCheck = NSButton(checkboxWithTitle: "Show the clock", target: nil, action: nil)
     private let hourCheck = NSButton(checkboxWithTitle: "24-hour time", target: nil, action: nil)
+    private let labelPopup = NSPopUpButton()
+    private let labelField = NSTextField()
+    private static let labelModes = [("mesh", "Mesh"), ("user", "Your name"), ("custom", "Custom text")]
     private var testClient: MeshMonitorClient?
+    private static let labelWidth: CGFloat = 80
+    private static let fieldWidth: CGFloat = 300
 
     init(settings: MeshSettings, onSave: @escaping (MeshSettings) -> Void) {
         self.settings = settings
@@ -35,17 +40,17 @@ final class ConfigureSheetController: NSObject {
         serverField.placeholderString = "https://meshmonitor.example.com"
         tokenField.placeholderString = "mm_v1_…"
         sourceField.placeholderString = "default"
-        [serverField, tokenField, sourceField].forEach { $0.widthAnchor.constraint(equalToConstant: 280).isActive = true }
+        [serverField, tokenField, sourceField].forEach { $0.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true }
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         statusLabel.lineBreakMode = .byTruncatingTail
-        statusLabel.widthAnchor.constraint(equalToConstant: 280).isActive = true
+        statusLabel.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true
 
         let testButton = NSButton(title: "Test connection", target: self, action: #selector(testConnection))
         let hint = NSTextField(wrappingLabelWithString: "Leave the server empty to show the simulated mesh. Create an API token in MeshMonitor under User Settings.")
         hint.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         hint.textColor = .secondaryLabelColor
-        hint.preferredMaxLayoutWidth = 280
+        hint.preferredMaxLayoutWidth = Self.fieldWidth
 
         presetPopup.addItems(withTitles: ColorPreset.all.map(\.name) + ["Custom"])
         presetPopup.target = self
@@ -66,6 +71,14 @@ final class ConfigureSheetController: NSObject {
         let clockRow = NSStackView(views: [clockCheck, hourCheck])
         clockRow.spacing = 16
 
+        labelPopup.addItems(withTitles: Self.labelModes.map(\.1))
+        labelPopup.target = self
+        labelPopup.action = #selector(labelModeChanged)
+        labelField.placeholderString = "Text under the clock"
+        labelField.widthAnchor.constraint(equalToConstant: 150).isActive = true
+        let labelRow = NSStackView(views: [labelPopup, labelField])
+        labelRow.spacing = 8
+
         let grid = NSGridView(views: [
             [header("MeshMonitor"), NSGridCell.emptyContentView],
             [label("Server"), serverField],
@@ -79,8 +92,10 @@ final class ConfigureSheetController: NSObject {
             [NSGridCell.emptyContentView, wells],
             [header("Clock"), NSGridCell.emptyContentView],
             [NSGridCell.emptyContentView, clockRow],
+            [label("Label"), labelRow],
         ])
         grid.rowSpacing = 8
+        grid.rowAlignment = .firstBaseline
         grid.columnSpacing = 10
         grid.column(at: 0).xPlacement = .trailing
         for row in [0, 7, 10] {
@@ -95,12 +110,26 @@ final class ConfigureSheetController: NSObject {
         ok.keyEquivalent = "\r"
         let buttons = NSStackView(views: [cancel, ok])
 
-        let root = NSStackView(views: [grid, buttons])
-        root.orientation = .vertical
-        root.alignment = .trailing
-        root.spacing = 18
-        root.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        // Explicit columns and margins: NSGridView's own sizing leaves the sheet lopsided.
+        grid.column(at: 0).width = Self.labelWidth
+        grid.column(at: 1).width = Self.fieldWidth
+        let root = NSView()
+        [grid, buttons].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview($0)
+        }
+        let margin: CGFloat = 20
+        NSLayoutConstraint.activate([
+            grid.topAnchor.constraint(equalTo: root.topAnchor, constant: margin),
+            grid.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: margin),
+            grid.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -margin),
+            buttons.topAnchor.constraint(equalTo: grid.bottomAnchor, constant: 18),
+            buttons.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -margin),
+            buttons.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -margin),
+        ])
         window.contentView = root
+        root.layoutSubtreeIfNeeded()
+        window.setContentSize(root.fittingSize)
     }
 
     private func label(_ text: String) -> NSTextField { NSTextField(labelWithString: text) }
@@ -133,6 +162,9 @@ final class ConfigureSheetController: NSObject {
         packetsWell.color = Self.color(settings.packets)
         clockCheck.state = settings.showClock ? .on : .off
         hourCheck.state = settings.use24Hour ? .on : .off
+        labelPopup.selectItem(at: Self.labelModes.firstIndex { $0.0 == settings.label } ?? 0)
+        labelField.stringValue = settings.labelText
+        labelModeChanged()
         selectMatchingPreset()
     }
 
@@ -147,6 +179,8 @@ final class ConfigureSheetController: NSObject {
         settings.packets = Self.hex(packetsWell.color)
         settings.showClock = clockCheck.state == .on
         settings.use24Hour = hourCheck.state == .on
+        settings.label = Self.labelModes[max(0, labelPopup.indexOfSelectedItem)].0
+        settings.labelText = String(labelField.stringValue.prefix(60))
     }
 
     private func selectMatchingPreset() {
@@ -184,6 +218,12 @@ final class ConfigureSheetController: NSObject {
     }
 
     @objc private func colorChanged() { selectMatchingPreset() }
+
+    @objc private func labelModeChanged() {
+        let custom = Self.labelModes[max(0, labelPopup.indexOfSelectedItem)].0 == "custom"
+        labelField.isEnabled = custom
+        labelField.isHidden = !custom
+    }
 
     @objc private func testConnection() {
         readFields()

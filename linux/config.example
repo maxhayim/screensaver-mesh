@@ -14,3 +14,7 @@ token = mm_v1_your_token_here
 
 # clock = yes
 # 24hour = no
+
+# Under the clock: mesh (the default), user (your name), or custom (label_text).
+# label = custom
+# label_text = KO4XYZ base

@@ -53,8 +53,9 @@ GNOME and KDE don't support third-party screen savers, so XScreenSaver is the wa
 - **Source:** leave blank to use your first source, or enter a source ID from MeshMonitor.
 - **Colors:** dots, lines, packets, and background, with presets: Default, Meshtastic, Green terminal, Amber terminal, and Paper.
 - **Clock:** show it or hide it, in 12- or 24-hour time.
+- **Label:** the line under the clock: **Mesh**, **your name** (the full name on your computer account), or **custom text**, like your call sign. In live mode " · live" is added after it.
 
-On macOS and Windows these are in the saver's Options/Settings window, which also has **Test connection**. On Linux they go in the config file; the XScreenSaver settings page also has the server, color presets, and clock. Keep the token in the config file: anything set on that page ends up on the command line, where other users of the computer can see it.
+On macOS and Windows these are in the saver's Options/Settings window, which also has **Test connection**. On Linux they go in the config file; the XScreenSaver settings page also has the server, color presets, clock, and label. Keep the token in the config file: anything set on that page ends up on the command line, where other users of the computer can see it.
 
 Where the token is stored: macOS keeps it in the screen saver's preferences in your user Library, Windows in the registry under `HKEY_CURRENT_USER\Software\maxhayim\screensaver-mesh`, Linux in your config file. None of them use a keychain.
 

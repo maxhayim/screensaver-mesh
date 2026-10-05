@@ -53,6 +53,27 @@ int main(void) {
     mm_settings_set(&s, "clock", "0");
     CHECK(s.use_24_hour && !s.show_clock);
 
+    /* The label under the clock */
+    char label[200];
+    mm_settings l;
+    mm_settings_default(&l);
+    mm_label(label, sizeof label, &l, "Max", 0);
+    CHECK(!strcmp(label, "Mesh"));
+    mm_label(label, sizeof label, &l, "Max", 1);
+    CHECK(!strcmp(label, "Mesh \xc2\xb7 live"));
+    mm_settings_set(&l, "label", "user");
+    mm_label(label, sizeof label, &l, "Max Hayim", 1);
+    CHECK(!strcmp(label, "Max Hayim \xc2\xb7 live"));
+    mm_label(label, sizeof label, &l, NULL, 0);
+    CHECK(!strcmp(label, "Mesh"));
+    mm_settings_set(&l, "label", "custom");
+    mm_settings_set(&l, "label_text", "KO4XYZ base");
+    mm_label(label, sizeof label, &l, "Max", 0);
+    CHECK(!strcmp(label, "KO4XYZ base"));
+    mm_settings_set(&l, "label_text", "");
+    mm_label(label, sizeof label, &l, "Max", 0);
+    CHECK(!strcmp(label, ""));
+
     /* URLs */
     char url[512];
     mm_settings_set(&s, "server", "mesh.example.com:8080/");

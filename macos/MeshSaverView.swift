@@ -187,7 +187,7 @@ final class MeshSaverView: ScreenSaverView {
         if settings.showClock { drawClock() }
     }
 
-    /// Bottom-left: the time in large type with "Mesh" under it.
+    /// Bottom-left: the time in large type with the label ("Mesh", your name, or custom text) under it.
     private func drawClock() {
         let ink = NSColor(cgColor: cgColor(parseColor(settings.dots, fallback: ColorPreset.all[0].dots))) ?? .white
         let scale = isPreview ? max(0.25, bounds.height / 900) : 1
@@ -199,8 +199,7 @@ final class MeshSaverView: ScreenSaverView {
             .foregroundColor: ink.withAlphaComponent(0.8),
             .kern: -1.0 * scale,
         ])
-        let live = mesh_is_live(core) != 0
-        let label = NSAttributedString(string: live ? "Mesh · live" : "Mesh", attributes: [
+        let label = NSAttributedString(string: settings.labelString(live: mesh_is_live(core) != 0), attributes: [
             .font: NSFont.systemFont(ofSize: 12 * scale, weight: .regular),
             .foregroundColor: ink.withAlphaComponent(0.5),
         ])

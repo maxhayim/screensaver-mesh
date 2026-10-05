@@ -31,6 +31,25 @@ struct MeshSettings {
     var packets = ColorPreset.all[0].packets
     var showClock = true
     var use24Hour = false
+    /// What's under the clock: "mesh", "user" (your name), or "custom" (labelText).
+    var label = "mesh"
+    var labelText = ""
+
+    /// The text under the clock, with " · live" when connected.
+    func labelString(live: Bool) -> String {
+        var base = "Mesh"
+        switch label {
+        case "user":
+            let name = NSFullUserName().trimmingCharacters(in: .whitespaces)
+            base = name.isEmpty ? NSUserName() : name
+        case "custom":
+            base = labelText // empty is allowed: just the time
+        default:
+            break
+        }
+        guard live else { return base }
+        return base.isEmpty ? "live" : "\(base) · live"
+    }
 
     var isLiveConfigured: Bool {
         !server.trimmingCharacters(in: .whitespaces).isEmpty && !token.trimmingCharacters(in: .whitespaces).isEmpty
@@ -50,6 +69,8 @@ struct MeshSettings {
         s.packets = d.string(forKey: "packets") ?? s.packets
         if d.object(forKey: "showClock") != nil { s.showClock = d.bool(forKey: "showClock") }
         if d.object(forKey: "use24Hour") != nil { s.use24Hour = d.bool(forKey: "use24Hour") }
+        s.label = d.string(forKey: "label") ?? s.label
+        s.labelText = d.string(forKey: "labelText") ?? s.labelText
         return s
     }
 
@@ -64,6 +85,8 @@ struct MeshSettings {
         d.set(packets, forKey: "packets")
         d.set(showClock, forKey: "showClock")
         d.set(use24Hour, forKey: "use24Hour")
+        d.set(label, forKey: "label")
+        d.set(labelText, forKey: "labelText")
         d.synchronize()
     }
 }

@@ -17,6 +17,6 @@ mkdir -p build/obj/windows
 "$CC" -std=gnu99 -O2 -Wall -Wextra -mwindows -Icore -Iwindows \
   -D_WIN32_WINNT=0x0601 -DWINVER=0x0601 \
   core/mesh.c core/json.c core/meshmonitor.c windows/mesh_win.c build/obj/windows/mesh.res \
-  -o build/Mesh.scr -static -lgdiplus -lwinhttp -lcomdlg32 -lcomctl32 -lshell32 -lm
+  -o build/Mesh.scr -static -lgdiplus -lwinhttp -lsecur32 -lcomdlg32 -lcomctl32 -lshell32 -lm
 
 echo "Built build/Mesh.scr ($VERSION)"

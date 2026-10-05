@@ -19,6 +19,12 @@
   <boolean id="24h"   _label="24-hour time"   arg-set="-24h"/>
   <boolean id="slow"  _label="Reduced motion" arg-set="-reduced-motion"/>
 
+  <select id="label">
+    <option id="mesh" _label="Label: Mesh"/>
+    <option id="user" _label="Label: your name" arg-set="-label-user"/>
+  </select>
+  <string id="labeltext" _label="Custom label (replaces the above)" arg="-label %"/>
+
   <_description>
 Your Meshtastic mesh, live from MeshMonitor. Nodes drift across the screen, links join the ones in reach, and every message sent on the mesh travels across it as a packet.
 

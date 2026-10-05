@@ -68,6 +68,11 @@ void mm_settings_set(mm_settings *s, const char *key, const char *value) {
     else if (!strcmp(key, "packets")) copy(s->packets, sizeof s->packets, value);
     else if (!strcmp(key, "clock")) s->show_clock = truthy(value);
     else if (!strcmp(key, "24hour")) s->use_24_hour = truthy(value);
+    else if (!strcmp(key, "label")) {
+        if (!strcmp(value, "user")) s->label = MM_LABEL_USER;
+        else if (!strcmp(value, "custom")) s->label = MM_LABEL_CUSTOM;
+        else s->label = MM_LABEL_MESH;
+    } else if (!strcmp(key, "label_text")) copy(s->label_text, sizeof s->label_text, value);
     else if (!strcmp(key, "preset")) {
         for (int i = 0; i < mm_preset_count; i++) {
             const char *a = mm_presets[i].name, *b = value;
@@ -75,6 +80,14 @@ void mm_settings_set(mm_settings *s, const char *key, const char *value) {
             if (!*a && !*b) mm_settings_apply_preset(s, i);
         }
     }
+}
+
+void mm_label(char *out, size_t size, const mm_settings *s, const char *user_name, int live) {
+    const char *base = "Mesh";
+    if (s->label == MM_LABEL_USER && user_name && *user_name) base = user_name;
+    else if (s->label == MM_LABEL_CUSTOM) base = s->label_text; /* empty is allowed: just the time */
+    if (live) snprintf(out, size, *base ? "%s \xc2\xb7 live" : "live", base);
+    else snprintf(out, size, "%s", base);
 }
 
 int mm_settings_load_file(mm_settings *s, const char *path) {

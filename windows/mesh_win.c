@@ -8,7 +8,9 @@
  *   Mesh.scr /x <seconds> <out.bmp> [width height] [preview]
  *                          test: render off screen and save a bitmap
  */
+#define SECURITY_WIN32
 #include <windows.h>
+#include <security.h>
 #include <commctrl.h>
 #include <commdlg.h>
 #include <gdiplus.h>
@@ -23,47 +25,80 @@
 #include "mesh.h"
 #include "resource.h"
 
-#define REG_KEY "Software\\maxhayim\\screensaver-mesh"
+#define REG_KEY_W L"Software\\maxhayim\\screensaver-mesh"
 #define FRAME_TIMER 1
 #define WM_APP_STATUS (WM_APP + 1)
 
 /* ---------- settings in the registry ---------- */
 
+static void utf8_from_wide(char *out, int size, const wchar_t *in) {
+    if (!WideCharToMultiByte(CP_UTF8, 0, in, -1, out, size, NULL, NULL)) out[0] = 0;
+}
+
+static void wide_from_utf8(wchar_t *out, int size, const char *in) {
+    if (!MultiByteToWideChar(CP_UTF8, 0, in, -1, out, size)) out[0] = 0;
+}
+
+static const char *label_names[] = {"mesh", "user", "custom"};
+
+/* Strings are stored as UTF-16 (REG_SZ) so custom text can be in any language. */
 static void load_settings(mm_settings *s) {
     mm_settings_default(s);
     HKEY key;
-    if (RegOpenKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, KEY_READ, &key) != ERROR_SUCCESS) return;
-    static const char *strings[] = {"server", "token", "source", "background", "dots", "lines", "packets"};
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, REG_KEY_W, 0, KEY_READ, &key) != ERROR_SUCCESS) return;
+    static const char *strings[] = {"server", "token", "source", "background", "dots", "lines", "packets",
+                                    "label", "label_text"};
     for (size_t i = 0; i < sizeof strings / sizeof strings[0]; i++) {
-        char value[300];
-        DWORD size = sizeof value - 1, type = 0;
-        if (RegQueryValueExA(key, strings[i], NULL, &type, (BYTE *)value, &size) == ERROR_SUCCESS && type == REG_SZ) {
-            value[size] = 0;
-            mm_settings_set(s, strings[i], value);
+        wchar_t name[32], value[300];
+        char utf8[600];
+        DWORD size = sizeof value - sizeof(wchar_t), type = 0;
+        wide_from_utf8(name, 32, strings[i]);
+        if (RegQueryValueExW(key, name, NULL, &type, (BYTE *)value, &size) == ERROR_SUCCESS && type == REG_SZ) {
+            value[size / sizeof(wchar_t)] = 0;
+            utf8_from_wide(utf8, sizeof utf8, value);
+            mm_settings_set(s, strings[i], utf8);
         }
     }
     DWORD v, size = sizeof v, type;
-    if (RegQueryValueExA(key, "clock", NULL, &type, (BYTE *)&v, &size) == ERROR_SUCCESS && type == REG_DWORD)
+    if (RegQueryValueExW(key, L"clock", NULL, &type, (BYTE *)&v, &size) == ERROR_SUCCESS && type == REG_DWORD)
         s->show_clock = v != 0;
     size = sizeof v;
-    if (RegQueryValueExA(key, "24hour", NULL, &type, (BYTE *)&v, &size) == ERROR_SUCCESS && type == REG_DWORD)
+    if (RegQueryValueExW(key, L"24hour", NULL, &type, (BYTE *)&v, &size) == ERROR_SUCCESS && type == REG_DWORD)
         s->use_24_hour = v != 0;
     RegCloseKey(key);
 }
 
 static void save_settings(const mm_settings *s) {
     HKEY key;
-    if (RegCreateKeyExA(HKEY_CURRENT_USER, REG_KEY, 0, NULL, 0, KEY_WRITE, NULL, &key, NULL) != ERROR_SUCCESS) return;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, REG_KEY_W, 0, NULL, 0, KEY_WRITE, NULL, &key, NULL) != ERROR_SUCCESS) return;
     struct { const char *name; const char *value; } strings[] = {
         {"server", s->server}, {"token", s->token}, {"source", s->source}, {"background", s->background},
         {"dots", s->dots}, {"lines", s->lines}, {"packets", s->packets},
+        {"label", label_names[s->label >= 0 && s->label <= 2 ? s->label : 0]}, {"label_text", s->label_text},
     };
-    for (size_t i = 0; i < sizeof strings / sizeof strings[0]; i++)
-        RegSetValueExA(key, strings[i].name, 0, REG_SZ, (const BYTE *)strings[i].value, (DWORD)strlen(strings[i].value) + 1);
+    for (size_t i = 0; i < sizeof strings / sizeof strings[0]; i++) {
+        wchar_t name[32], value[300];
+        wide_from_utf8(name, 32, strings[i].name);
+        wide_from_utf8(value, 300, strings[i].value);
+        RegSetValueExW(key, name, 0, REG_SZ, (const BYTE *)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
+    }
     DWORD clock = (DWORD)s->show_clock, h24 = (DWORD)s->use_24_hour;
-    RegSetValueExA(key, "clock", 0, REG_DWORD, (const BYTE *)&clock, sizeof clock);
-    RegSetValueExA(key, "24hour", 0, REG_DWORD, (const BYTE *)&h24, sizeof h24);
+    RegSetValueExW(key, L"clock", 0, REG_DWORD, (const BYTE *)&clock, sizeof clock);
+    RegSetValueExW(key, L"24hour", 0, REG_DWORD, (const BYTE *)&h24, sizeof h24);
     RegCloseKey(key);
+}
+
+/* The name shown for "Your name": the display name, or the sign-in name. */
+static void user_name(char *out, int size) {
+    wchar_t name[256];
+    ULONG n = 256;
+    if (GetUserNameExW(NameDisplay, name, &n) && name[0]) {
+        utf8_from_wide(out, size, name);
+        return;
+    }
+    DWORD m = 256;
+    if (GetUserNameW(name, &m)) utf8_from_wide(out, size, name);
+    else out[0] = 0;
 }
 
 /* ---------- HTTP ---------- */
@@ -308,6 +343,7 @@ typedef struct {
     HBITMAP bitmap;
     void *bits;
     int width, height;   /* pixels */
+    char user[256];      /* for the "Your name" label */
 } saver;
 
 static mesh_color parse_or(const char *hex, const char *fallback) {
@@ -339,6 +375,7 @@ static void saver_resize(saver *s, int width, int height) {
 static void saver_init(saver *s, int preview, float scale) {
     memset(s, 0, sizeof *s);
     load_settings(&s->settings);
+    user_name(s->user, sizeof s->user);
     s->preview = preview;
     s->scale = scale > 0 ? scale : 1;
     s->m = mesh_create(GetTickCount() ^ (GetCurrentProcessId() << 16));
@@ -362,7 +399,10 @@ static void draw_clock(saver *s, GpGraphics *g) {
     if (s->settings.use_24_hour) _snwprintf(time, 32, L"%02d:%02d", t.wHour, t.wMinute);
     else _snwprintf(time, 32, L"%d:%02d %ls", t.wHour % 12 ? t.wHour % 12 : 12, t.wMinute, t.wHour < 12 ? L"AM" : L"PM");
     time[31] = 0;
-    const wchar_t *label = mesh_is_live(s->m) ? L"Mesh \x00b7 live" : L"Mesh";
+    char label_utf8[400];
+    wchar_t label[400];
+    mm_label(label_utf8, sizeof label_utf8, &s->settings, s->user, mesh_is_live(s->m));
+    wide_from_utf8(label, 400, label_utf8);
 
     mesh_color ink = parse_or(s->settings.dots, mm_presets[0].dots);
     float k = s->preview ? (float)s->height / s->scale / 900.0f : 1.0f;
@@ -632,6 +672,11 @@ static void read_fields(HWND dlg) {
     mm_settings_set(&dialog_settings, "token", text);
     GetDlgItemTextA(dlg, IDC_SOURCE, text, sizeof text);
     mm_settings_set(&dialog_settings, "source", text);
+    int label = (int)SendDlgItemMessageW(dlg, IDC_LABEL, CB_GETCURSEL, 0, 0);
+    dialog_settings.label = label >= 0 && label <= 2 ? label : MM_LABEL_MESH;
+    wchar_t wide[61];
+    GetDlgItemTextW(dlg, IDC_LABEL_TEXT, wide, 61);
+    utf8_from_wide(dialog_settings.label_text, sizeof dialog_settings.label_text, wide);
     dialog_settings.show_clock = IsDlgButtonChecked(dlg, IDC_CLOCK) == BST_CHECKED;
     dialog_settings.use_24_hour = IsDlgButtonChecked(dlg, IDC_24HOUR) == BST_CHECKED;
 }
@@ -674,6 +719,15 @@ static INT_PTR CALLBACK settings_proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) 
         for (int i = 0; i < mm_preset_count; i++)
             SendDlgItemMessageA(dlg, IDC_PRESET, CB_ADDSTRING, 0, (LPARAM)mm_presets[i].name);
         SendDlgItemMessageA(dlg, IDC_PRESET, CB_ADDSTRING, 0, (LPARAM) "Custom");
+        static const wchar_t *label_titles[] = {L"Mesh", L"Your name", L"Custom text"};
+        for (int i = 0; i < 3; i++) SendDlgItemMessageW(dlg, IDC_LABEL, CB_ADDSTRING, 0, (LPARAM)label_titles[i]);
+        SendDlgItemMessageW(dlg, IDC_LABEL, CB_SETCURSEL, (WPARAM)dialog_settings.label, 0);
+        SendDlgItemMessageW(dlg, IDC_LABEL_TEXT, EM_LIMITTEXT, 60, 0);
+        SendDlgItemMessageW(dlg, IDC_LABEL_TEXT, EM_SETCUEBANNER, TRUE, (LPARAM)L"Text under the clock");
+        wchar_t label_text[130];
+        wide_from_utf8(label_text, 130, dialog_settings.label_text);
+        SetDlgItemTextW(dlg, IDC_LABEL_TEXT, label_text);
+        EnableWindow(GetDlgItem(dlg, IDC_LABEL_TEXT), dialog_settings.label == MM_LABEL_CUSTOM);
         CheckDlgButton(dlg, IDC_CLOCK, dialog_settings.show_clock ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(dlg, IDC_24HOUR, dialog_settings.use_24_hour ? BST_CHECKED : BST_UNCHECKED);
         sync_preset(dlg);
@@ -706,6 +760,11 @@ static INT_PTR CALLBACK settings_proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) 
                 if (i >= 0 && i < mm_preset_count) mm_settings_apply_preset(&dialog_settings, i);
                 sync_preset(dlg);
             }
+            return TRUE;
+        case IDC_LABEL:
+            if (HIWORD(wp) == CBN_SELCHANGE)
+                EnableWindow(GetDlgItem(dlg, IDC_LABEL_TEXT),
+                             SendDlgItemMessageW(dlg, IDC_LABEL, CB_GETCURSEL, 0, 0) == MM_LABEL_CUSTOM);
             return TRUE;
         case IDC_BACKGROUND: case IDC_DOTS: case IDC_LINES: case IDC_PACKETS: {
             static COLORREF custom[16];

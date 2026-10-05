@@ -11,6 +11,7 @@
  * Settings come from ~/.config/screensaver-mesh/config (key=value lines),
  * then from flags: -server URL -token T -source S -preset NAME
  * -background/-dots/-lines/-packets #rrggbb -clock/-no-clock -24h/-12h
+ * -label TEXT (custom text under the clock) or -label-user (your name)
  * -reduced-motion -config FILE.
  */
 #define _POSIX_C_SOURCE 200809L
@@ -24,6 +25,7 @@
 #include <curl/curl.h>
 
 #include <pthread.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,6 +51,7 @@ static void usage(void) {
             "usage: screensaver-mesh [-root | -window-id ID] [-config FILE] [-server URL] [-token T]\n"
             "       [-source S] [-preset default|meshtastic|green terminal|amber terminal|paper]\n"
             "       [-background|-dots|-lines|-packets #rrggbb] [-clock|-no-clock] [-24h|-12h]\n"
+            "       [-label TEXT | -label-user]\n"
             "       [-reduced-motion] [-render SECONDS OUT.png [-size WxH] [-preview]]\n");
     exit(2);
 }
@@ -82,6 +85,13 @@ static void parse_args(int argc, char **argv) {
         else if (TAKES("-dots")) mm_settings_set(&settings, "dots", next);
         else if (TAKES("-lines")) mm_settings_set(&settings, "lines", next);
         else if (TAKES("-packets")) mm_settings_set(&settings, "packets", next);
+        else if (TAKES("-label")) {
+            /* XScreenSaver passes -label "" when the field is empty: keep the config file's choice. */
+            if (*next) {
+                mm_settings_set(&settings, "label", "custom");
+                mm_settings_set(&settings, "label_text", next);
+            }
+        }
         else if (TAKES("-window-id")) target_window = (Window)strtoul(next, NULL, 0);
         else if (TAKES("-size")) {
             if (sscanf(next, "%dx%d", &render_w, &render_h) != 2 || render_w < 1 || render_h < 1) usage();
@@ -94,6 +104,7 @@ static void parse_args(int argc, char **argv) {
         else if (!strcmp(a, "-no-clock")) settings.show_clock = 0;
         else if (!strcmp(a, "-24h")) settings.use_24_hour = 1;
         else if (!strcmp(a, "-12h")) settings.use_24_hour = 0;
+        else if (!strcmp(a, "-label-user")) mm_settings_set(&settings, "label", "user");
         else if (!strcmp(a, "-reduced-motion")) reduced_motion = 1;
         else if (!strcmp(a, "-preview")) compact = 1;
         else if (!strcmp(a, "-root")) use_root = 1;
@@ -298,6 +309,21 @@ static void draw_circle(void *ctx, float x, float y, float r, int filled, float 
     }
 }
 
+/* The full name from the account (the first field of GECOS), else the login name. */
+static const char *user_name(void) {
+    static char name[256];
+    if (name[0]) return name;
+    struct passwd *pw = getpwuid(getuid());
+    if (!pw) return NULL;
+    if (pw->pw_gecos && *pw->pw_gecos) {
+        snprintf(name, sizeof name, "%s", pw->pw_gecos);
+        char *comma = strchr(name, ',');
+        if (comma) *comma = 0;
+    }
+    if (!name[0] && pw->pw_name) snprintf(name, sizeof name, "%s", pw->pw_name);
+    return name;
+}
+
 static void draw_clock(cairo_t *cr, const mesh *m, int width, int height) {
     char text[32];
     time_t now = time(NULL);
@@ -305,7 +331,8 @@ static void draw_clock(cairo_t *cr, const mesh *m, int width, int height) {
     localtime_r(&now, &local);
     strftime(text, sizeof text, settings.use_24_hour ? "%H:%M" : "%I:%M %p", &local);
     const char *shown = (!settings.use_24_hour && text[0] == '0') ? text + 1 : text;
-    const char *label = mesh_is_live(m) ? "Mesh \xc2\xb7 live" : "Mesh";
+    char label[400];
+    mm_label(label, sizeof label, &settings, user_name(), mesh_is_live(m));
 
     mesh_color ink = parse_or(settings.dots, mm_presets[0].dots);
     double k = compact ? height / 900.0 : 1.0;
