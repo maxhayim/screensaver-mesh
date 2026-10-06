@@ -13,7 +13,7 @@
 
 # Mesh Screensaver
 
-Your [**Meshtastic**](https://meshtastic.org/) and [**MeshCore**](https://meshcore.io) mesh as a screen saver, on **Windows, macOS, and Linux**. Your nodes drift across a dark screen, links join the ones in reach, and every message sent on the mesh travels across it as an orange packet, live from your own [**MeshMonitor**](https://github.com/Yeraze/MeshMonitor).
+Your [**Meshtastic**](https://meshtastic.org/) and [**MeshCore**](https://meshcore.io) mesh as a screen saver, on **Windows, macOS, and Linux**. Your nodes drift across a dark screen, links join the ones in reach, and every message sent on the mesh travels across it as an orange packet, live from your own [**MeshMonitor**](https://github.com/Yeraze/MeshMonitor). See it live on [maxhayim.com](https://maxhayim.com).
 
 <p align="center">
   <img src="docs/assets/screenshot.png" alt="The Mesh screen saver showing a live mesh" width="760"/>
