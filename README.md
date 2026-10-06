@@ -24,6 +24,7 @@ This repository contains:
 - **macos/** — the `.saver` for macOS (Swift)
 - **windows/** — the `.scr` for Windows (C, GDI+)
 - **linux/** — the XScreenSaver hack for Linux (C, cairo)
+- **web/** — the same saver for web pages: the C core as WebAssembly, drawn in a canvas
 - **tests/** and **tools/** — tests, a fake MeshMonitor, and a preview renderer
 - **docs/** — the developer guide, the logo, and the screenshot
 
@@ -84,6 +85,22 @@ Mesh isn't code-signed or notarized (that costs money every year), so macOS and 
 
 GNOME and KDE don't support third-party screen savers, so XScreenSaver is the way to run it on Linux.
 
+### Web pages
+
+A web page can run the same saver, with the same look, settings, and live MeshMonitor mode:
+
+```
+npm install github:maxhayim/screensaver-mesh#v0.2.0
+```
+
+```js
+import { SETTINGS, cleanSettings, createSaver } from "screensaver-mesh";
+
+const saver = createSaver(canvas, { settings: cleanSettings(saved), onStatus: console.log });
+```
+
+It has no dependencies. The page sizes the canvas and builds its settings form from `SETTINGS`. For live mode, add the page's address to MeshMonitor's `ALLOWED_ORIGINS`. See [docs/GUIDE.md](docs/GUIDE.md#web).
+
 ### Updating
 
 Install the new release over the old one: double-click the new `Mesh.saver` on macOS, replace `Mesh.scr` in the same folder on Windows, or run the new `install.sh` on Linux. Your settings carry over.
@@ -99,7 +116,7 @@ Install the new release over the old one: double-click the new `Mesh.saver` on m
 3. Leave **Source** blank to use your first source, or enter a source ID from MeshMonitor.
 4. Click **Test connection** (macOS and Windows). It shows how many active nodes it found.
 
-Mesh is a program, not a web page, so there's nothing to add to MeshMonitor's `ALLOWED_ORIGINS`.
+The downloads are programs, not web pages, so there's nothing to add to MeshMonitor's `ALLOWED_ORIGINS`. The web version is different: a browser only lets a page reach MeshMonitor if the page's address is in `ALLOWED_ORIGINS`.
 
 ### Colors
 
@@ -135,6 +152,8 @@ core/json.c           a small JSON reader
 macos/                the .saver: the view, the MeshMonitor client, the Options sheet
 windows/              the .scr: Win32 + GDI+, WinHTTP, the settings dialog
 linux/                the XScreenSaver hack, its settings XML, installer, and example config
+web/                  the web version: bridge.c, index.js, and the built mesh.wasm (committed)
+package.json          lets a page install the web version from GitHub
 tests/                core and MeshMonitor tests
 tools/                a fake MeshMonitor and the macOS preview renderer
 docs/GUIDE.md         developer guide
@@ -151,7 +170,10 @@ See [docs/GUIDE.md](docs/GUIDE.md).
 macos/build.sh        # build/Mesh.saver (needs the Xcode command-line tools)
 windows/build.sh      # build/Mesh.scr (cross-compiles with mingw-w64)
 make -C linux         # build/screensaver-mesh (needs libx11, cairo, and libcurl dev packages)
+web/build.sh          # web/mesh.wasm and its generated files (needs zig and node)
 ```
+
+Commit `web/` after changing the core: pages install it from GitHub without building.
 
 GitHub Actions builds and tests all three on every push, and publishes a release for every version tag.
 
@@ -161,6 +183,7 @@ GitHub Actions builds and tests all three on every push, and publishes a release
 
 This project follows semantic versioning.
 
+- **v0.2.0** — Mesh for web pages, the same saver in a canvas; README, guide, and community files
 - **v0.1.2** — pasting the API token works on macOS
 - **v0.1.1** — `http://` servers on macOS, a picture in the screen saver list, and your own label under the clock
 - **v0.1.0** — the Mesh screen saver for macOS, Windows, and Linux, live from MeshMonitor

@@ -2,9 +2,11 @@
 
 All notable changes to the Mesh screen saver are documented here.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-06
 
 ### Added
+- **Mesh for web pages** (`web/`): the same C core, compiled to WebAssembly, drawn in a canvas, with the same look, settings, clock, and live MeshMonitor mode as the downloads. Install with `npm install github:maxhayim/screensaver-mesh#v0.2.0`; no dependencies. `createSaver(canvas, options)` runs it; `SETTINGS`, `DEFAULTS`, `cleanSettings`, and `presetOf` describe the settings so a page can build its own form; `describeError` explains failed connections, including a missing `ALLOWED_ORIGINS` entry. The interface is shared with the Starfield screen saver.
+- `web/demo.html`, a page to try it, and web tests in CI.
 - **Community files:** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md`.
 - **Developer guide** in `docs/GUIDE.md`, and `docs/assets/` for the logo and screenshot.
 
@@ -12,6 +14,7 @@ All notable changes to the Mesh screen saver are documented here.
 - README rewritten: what's on screen, install and update steps, settings, privacy notes, repository layout, and versioning.
 - **Release downloads** are named after the repository: `screensaver-mesh-<version>-macos.zip`, `screensaver-mesh-<version>-windows.zip`, and `screensaver-mesh-<version>-linux-x86_64.tar.gz`.
 - Release notes follow the changelog, with a Compatibility section.
+- The fake MeshMonitor (`tools/mock_meshmonitor.py`) answers browsers (CORS) and can start with old messages (`--backlog`).
 
 ## [0.1.2] - 2026-10-06
 

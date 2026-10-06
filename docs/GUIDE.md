@@ -1,6 +1,6 @@
 # Mesh Screensaver — developer guide
 
-Mesh is one screen saver built three times: a `.saver` for macOS, a `.scr` for Windows, and an XScreenSaver hack for Linux. All three draw through the same C core, so the mesh looks and moves the same everywhere; each system only adds its own window, 2D drawing, settings, and networking.
+Mesh is one screen saver built four times: a `.saver` for macOS, a `.scr` for Windows, an XScreenSaver hack for Linux, and a module for web pages. All four draw through the same C core, so the mesh looks and moves the same everywhere; each one only adds its own window or canvas, 2D drawing, settings, and networking.
 
 ## Layout
 
@@ -27,7 +27,15 @@ linux/
   mesh_x11.c              the hack: Xlib + cairo, libcurl, config file and flags, -render test mode
   screensaver-mesh.xml    the XScreenSaver settings page
   Makefile, install.sh, config.example, INSTALL.txt
-tests/                    test_mesh.c (core), test_meshmonitor.c (JSON, settings, parsing)
+web/
+  bridge.c                the core for JavaScript: exports, and two drawing imports
+  index.js                the interface: SETTINGS, cleanSettings, createSaver, …
+  build.sh, generate.mjs  builds mesh.wasm, then wasm.js (base64) and presets.js
+  mesh.wasm, wasm.js, presets.js   built files (committed, so pages need no build)
+  demo.html               a page to try it
+package.json              lets a page npm-install web/ from GitHub
+tests/                    test_mesh.c (core), test_meshmonitor.c (JSON, settings, parsing),
+                          web.test.mjs (the web version, in node)
 tools/
   mock_meshmonitor.py     a fake MeshMonitor: 40 nodes and a message every 2 seconds
   preview.swift           loads Mesh.saver like the host does: renders PNGs, the sheet, a paste test
@@ -80,12 +88,65 @@ Mesh uses MeshMonitor's REST API v1, with `Authorization: Bearer <token>`. Every
 - Settings come from `~/.config/screensaver-mesh/config`, then from flags (`-server`, `-token`, `-preset`, `-label`, …). The XScreenSaver XML exposes the server, presets, clock, and label.
 - `-render <seconds> <out.png> [-size WxH] [-preview]` renders off screen with cairo, no X needed.
 
+## Web
+
+`web/` is the same saver for web pages. A page installs it from GitHub and imports `screensaver-mesh`:
+
+```
+npm install github:maxhayim/screensaver-mesh#v0.2.0
+```
+
+The Starfield screen saver has the same interface, so a page can treat both alike:
+
+```js
+export const ID = "mesh";
+export const NAME = "Mesh";
+export const SETTINGS = [...];     // { key, label, type, default, group?, placeholder?, presets?, options?, maxLength?, showIf? }
+export const DEFAULTS = {...};     // key → default
+export function cleanSettings(raw) // any saved object → valid settings
+export function presetOf(settings) // the matching preset's name, or "Custom"
+export function describeError(error, settings) // a plain-language reason a request failed
+export function createSaver(canvas, options)   // → { update(settings), destroy() }
+```
+
+- **SETTINGS** follows the native Options sheet: Server, API token, Source (group "MeshMonitor"); Preset, Background, Dots, Lines, Packets ("Colors"); Show the clock, 24-hour time, Label, and Text under the clock, which has `showIf: { label: "custom" }` ("Clock"). Types are `preset`, `color`, `toggle`, `choice`, `text`, and `password`. The presets come from `mm_presets` in `core/meshmonitor.c`. Picking a preset sets the four colors; changing a color by hand makes `preset` read "Custom".
+- **createSaver(canvas, options)** runs the saver in a canvas the page sizes with CSS. It follows the canvas's size and `devicePixelRatio` (ResizeObserver), and pauses while the page is hidden. Options:
+  - `settings`: as from `cleanSettings`; missing keys use `DEFAULTS`
+  - `compact`: a small preview, sized like the native thumbnails
+  - `reducedMotion`: slower drift and packets (default: the page's `prefers-reduced-motion`)
+  - `userName`: the text for "Your name", since a page has no system user
+  - `now`: `() => Date`, for the clock
+  - `onStatus(status, detail)`: `"simulated"`, `"connecting"`, `"live"`, or `"offline"`; for `"offline"`, `detail` is `describeError`'s message
+
+  `update(settings)` merges changed settings in; a new server, token, or source reconnects. `destroy()` stops everything.
+- **Drawing:** `web/bridge.c` wraps the core and draws through two imports from the module `"host"`, `line` and `circle`, which draw into the canvas's 2D context. Each frame: `step(dt)` (seconds, at most 0.1), clear to the background, `render()`, then the clock in the native savers' sizes and margins, in `-apple-system, "Segoe UI", system-ui, sans-serif`, right-to-left when the label is.
+- **Live mode** behaves as in [MeshMonitor](#meshmonitor): nodes every 5 minutes and messages every 4 seconds with `fetch` (`Authorization: Bearer`, `credentials: "omit"`), parsed by the same C code as Windows and Linux (`nodes_json`, `messages_json`). A server with no scheme gets `https://`, except `localhost`, `127.0.0.1`, and `[::1]`, which get `http://`. After 8 failed polls it shows the simulated mesh; the first answer after that brings nodes back right away. Messages that arrive while the page is hidden aren't replayed.
+- **ALLOWED_ORIGINS:** a browser lets a page read MeshMonitor's answers only if MeshMonitor allows the page's address. Add it (for example `https://example.com`, or `http://localhost:5173` while developing) to MeshMonitor's `ALLOWED_ORIGINS` setting. A page on `https://` also can't reach an `http://` MeshMonitor; give MeshMonitor an `https://` address. `describeError` says which of these happened.
+- **The module** is about 60 KB of WebAssembly, carried as base64 in `web/wasm.js`, so a bundler never has to find a `.wasm` file. It's compiled once and instantiated per saver; it imports nothing but the two drawing functions.
+
+To build it, you need [zig](https://ziglang.org/) (CI uses 0.16.0) and node:
+
+```
+web/build.sh
+```
+
+That compiles `web/mesh.wasm` with `zig cc -target wasm32-wasi -Oz`, then writes `web/wasm.js` and `web/presets.js`. Commit all three. CI rebuilds them and fails if the committed files differ.
+
+To try it in a browser, serve the repo root and open the demo, optionally against the fake MeshMonitor:
+
+```
+python3 tools/mock_meshmonitor.py &
+python3 -m http.server 8642
+# http://localhost:8642/web/demo.html?server=127.0.0.1:8787&token=mm_v1_test
+```
+
 ## Testing
 
 ```
 cc -std=c99 -Icore core/mesh.c tests/test_mesh.c -lm -o build/test_mesh && build/test_mesh
 cc -std=c99 -Icore core/json.c core/meshmonitor.c tests/test_meshmonitor.c -o build/test_mm && build/test_mm
-python3 tools/mock_meshmonitor.py [port] [--chunked]    # token mm_v1_test, default port 8787
+python3 tools/mock_meshmonitor.py [port] [--chunked] [--backlog N]   # token mm_v1_test, default port 8787
+node tests/web.test.mjs                                  # the web version; starts its own fake MeshMonitor
 ```
 
 macOS, with `build/Mesh.saver` built:
@@ -102,13 +163,14 @@ To point the preview at the fake server, write settings with `defaults -currentH
 CI (`.github/workflows/build.yml`) runs on every push:
 - **macOS:** tests, the build, previews in simulated and live mode, and the paste test
 - **Linux:** tests, the build, renders, a run under Xvfb, and a run inside a real XScreenSaver
+- **Web:** rebuilds `web/` with zig and checks it matches what's committed, checks `package.json` against `VERSION`, and runs `tests/web.test.mjs`
 - **Windows:** the cross-compile, then on a Windows machine the `/x` renders (live included), `/s` full screen, `/p` inside a real parent window, and the `/c` dialog, with screenshots
 
 Screenshots from every run are kept as workflow artifacts.
 
 ## Releasing
 
-1. Set `VERSION` (semantic versioning).
+1. Set `VERSION` and `"version"` in `package.json` (semantic versioning).
 2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD`, and add the version to the README's Versioning list.
 3. Tag with the release's name as the message, and push:
    ```
@@ -116,4 +178,4 @@ Screenshots from every run are kept as workflow artifacts.
    git push origin vx.y.z
    ```
 
-CI builds all three, then publishes the release as **vx.y.z — Name**: the notes are that version's changelog section plus a Compatibility section, with `screensaver-mesh-<version>-macos.zip`, `-windows.zip`, and `-linux-x86_64.tar.gz` attached.
+CI builds and tests everything, then publishes the release as **vx.y.z — Name**: the notes are that version's changelog section plus a Compatibility section, with `screensaver-mesh-<version>-macos.zip`, `-windows.zip`, and `-linux-x86_64.tar.gz` attached.

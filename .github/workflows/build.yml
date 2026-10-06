@@ -13,6 +13,23 @@ permissions:
   contents: read
 
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: mlugg/setup-zig@v2
+        with: { version: 0.16.0 }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - name: The committed web build is up to date
+        run: |
+          web/build.sh
+          git diff --exit-code -- web/ || { echo "web/ is out of date: run web/build.sh and commit it"; exit 1; }
+      - name: package.json matches VERSION
+        run: test "$(node -p 'require("./package.json").version')" = "$(cat VERSION)"
+      - name: Web tests
+        run: node tests/web.test.mjs
+
   macos:
     runs-on: macos-latest
     steps:
@@ -206,7 +223,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [macos, linux, windows-build, windows-test]
+    needs: [macos, linux, windows-build, windows-test, web]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -238,6 +255,7 @@ jobs:
             echo "- **macOS 11 and later:** unzip \`screensaver-mesh-$VERSION-macos.zip\` and double-click \`Mesh.saver\`. It isn't notarized, so the first time, click **Open Anyway** in System Settings → Privacy & Security."
             echo "- **Windows 10 and 11:** unzip \`screensaver-mesh-$VERSION-windows.zip\`, then right-click \`Mesh.scr\` and choose **Install**. It isn't code-signed, so click **More info → Run anyway** the first time."
             echo "- **Linux with XScreenSaver:** unpack \`screensaver-mesh-$VERSION-linux-x86_64.tar.gz\` and run \`./install.sh\`."
+            echo "- **Web pages:** \`npm install github:maxhayim/screensaver-mesh#$GITHUB_REF_NAME\` (see the guide's Web section)."
             echo "- Installing over an earlier version keeps your settings."
           } > notes.md
           cat notes.md

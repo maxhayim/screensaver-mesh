@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mesh — web demo</title>
+  <style>
+    :root { color-scheme: dark; font: 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
+    body { margin: 0; background: #0b0b0a; color: #eeebe4; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    aside { position: fixed; top: 12px; right: 12px; width: 260px; max-height: calc(100vh - 24px); overflow: auto;
+            background: rgba(20, 20, 18, 0.92); border: 1px solid #333; border-radius: 10px; padding: 10px 12px; }
+    aside[hidden] { display: none; }
+    h3 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; opacity: .6; }
+    label[hidden] { display: none; }
+    label { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 5px 0; }
+    input[type=text], input[type=password], select { width: 140px; }
+    #status { margin-top: 10px; opacity: .7; }
+    #toggle { position: fixed; top: 12px; right: 12px; }
+  </style>
+</head>
+<body>
+  <canvas id="saver"></canvas>
+  <button id="toggle" hidden>Settings</button>
+  <aside id="panel">
+    <form id="settings"></form>
+    <div id="status"></div>
+    <p><button id="hide" type="button">Hide</button> <button id="preview" type="button">Preview size</button></p>
+  </aside>
+  <script type="module">
+    // Serve the repo root (python3 -m http.server) and open /web/demo.html.
+    // ?server=…&token=… prefill the MeshMonitor settings.
+    import { SETTINGS, cleanSettings, presetOf, createSaver } from "./index.js";
+
+    const params = new URLSearchParams(location.search);
+    let settings = cleanSettings(Object.fromEntries(params));
+    const canvas = document.getElementById("saver");
+    const form = document.getElementById("settings");
+    const status = document.getElementById("status");
+
+    let saver = start(false);
+    function start(compact) {
+      return createSaver(canvas, {
+        settings, compact, userName: "Demo User",
+        onStatus: (s, detail) => (status.textContent = `Status: ${s}${detail ? ` — ${detail}` : ""}`),
+      });
+    }
+
+    // The settings UI, built from SETTINGS the way a page would.
+    let group = null;
+    const inputs = {};
+    for (const s of SETTINGS) {
+      if (s.group !== group) {
+        group = s.group;
+        form.insertAdjacentHTML("beforeend", `<h3>${group}</h3>`);
+      }
+      const row = document.createElement("label");
+      row.textContent = s.label;
+      let input;
+      if (s.type === "preset" || s.type === "choice") {
+        input = document.createElement("select");
+        const options = s.type === "preset" ? [...s.presets.map((p) => [p.name, p.name]), ["Custom", "Custom"]] : s.options;
+        for (const [value, text] of options) input.add(new Option(text, value));
+      } else {
+        input = document.createElement("input");
+        input.type = { color: "color", toggle: "checkbox", password: "password" }[s.type] ?? "text";
+        if (s.placeholder) input.placeholder = s.placeholder;
+        if (s.maxLength) input.maxLength = s.maxLength;
+      }
+      input.name = s.key;
+      row.append(input);
+      form.append(row);
+      inputs[s.key] = { input, row, setting: s };
+    }
+
+    function show() {
+      for (const { input, row, setting } of Object.values(inputs)) {
+        if (input.type === "checkbox") input.checked = settings[setting.key];
+        else input.value = settings[setting.key];
+        const cond = setting.showIf;
+        row.hidden = cond ? !Object.entries(cond).every(([k, v]) => settings[k] === v) : false;
+      }
+    }
+    show();
+
+    form.addEventListener("change", (e) => {
+      const { name } = e.target;
+      const raw = { ...settings, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value };
+      if (name === "preset") {
+        const p = SETTINGS.find((s) => s.key === "preset").presets.find((p) => p.name === e.target.value);
+        if (p) Object.assign(raw, p.colors);
+      }
+      settings = cleanSettings(raw);
+      settings.preset = presetOf(settings);
+      saver.update(settings);
+      show();
+    });
+
+    const panel = document.getElementById("panel");
+    const toggle = document.getElementById("toggle");
+    document.getElementById("hide").onclick = () => { panel.hidden = true; toggle.hidden = false; };
+    toggle.onclick = () => { panel.hidden = false; toggle.hidden = true; };
+    let compact = false;
+    document.getElementById("preview").onclick = () => {
+      compact = !compact;
+      canvas.style.width = compact ? "300px" : "";
+      canvas.style.height = compact ? "180px" : "";
+      saver.destroy();
+      saver = start(compact);
+    };
+  </script>
+</body>
+</html>
