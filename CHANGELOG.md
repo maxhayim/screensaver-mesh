@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- **macOS: pasting the API token works.** In the screen saver's Options window, ⌘V only pasted part of the token, or nothing. Copy, paste, cut, select all, and undo now work in every field. There's also a **Paste** button under the API token that fills it straight from the clipboard, and a **Show** checkbox so you can check the whole token went in.
+
 ## 0.1.1
 
 - **Your own label under the clock.** Choose what the line under the time says: Mesh, your name, or your own text, like a call sign. In the settings on macOS and Windows, and in the config file or XScreenSaver settings on Linux.

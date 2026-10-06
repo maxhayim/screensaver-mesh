@@ -1,5 +1,30 @@
 import AppKit
 
+/// The screen saver host has no Edit menu, and ⌘V, ⌘C, ⌘X, ⌘A, and ⌘Z normally
+/// reach text fields through that menu. Without this, pasting an API token
+/// silently fails. The window handles those shortcuts itself.
+final class EditingWindow: NSWindow {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == .command || flags == [.command, .shift], let key = event.charactersIgnoringModifiers?.lowercased() {
+            let action: Selector?
+            switch (key, flags.contains(.shift)) {
+            case ("v", false): action = #selector(NSText.paste(_:))
+            case ("c", false): action = #selector(NSText.copy(_:))
+            case ("x", false): action = #selector(NSText.cut(_:))
+            case ("a", false): action = #selector(NSText.selectAll(_:))
+            case ("z", false): action = Selector(("undo:"))
+            case ("z", true): action = Selector(("redo:"))
+            default: action = nil
+            }
+            // Straight to this window's focused field: inside the host, this window
+            // usually isn't the app's key window, so NSApp.sendAction(to: nil) misses it.
+            if let action, let responder = firstResponder, responder.tryToPerform(action, with: self) { return true }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 /// The "Options…" sheet in System Settings › Screen Saver.
 final class ConfigureSheetController: NSObject {
     let window: NSWindow
@@ -8,6 +33,8 @@ final class ConfigureSheetController: NSObject {
 
     private let serverField = NSTextField()
     private let tokenField = NSSecureTextField()
+    private let tokenPlainField = NSTextField() // shown instead of tokenField with "Show"
+    private let showTokenCheck = NSButton(checkboxWithTitle: "Show", target: nil, action: nil)
     private let sourceField = NSTextField()
     private let statusLabel = NSTextField(labelWithString: "")
     private let presetPopup = NSPopUpButton()
@@ -27,7 +54,7 @@ final class ConfigureSheetController: NSObject {
     init(settings: MeshSettings, onSave: @escaping (MeshSettings) -> Void) {
         self.settings = settings
         self.onSave = onSave
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
+        window = EditingWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
                           styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
         build()
@@ -39,12 +66,24 @@ final class ConfigureSheetController: NSObject {
     private func build() {
         serverField.placeholderString = "https://meshmonitor.example.com"
         tokenField.placeholderString = "mm_v1_…"
+        tokenPlainField.placeholderString = "mm_v1_…"
+        tokenPlainField.isHidden = true
         sourceField.placeholderString = "default"
-        [serverField, tokenField, sourceField].forEach { $0.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true }
+        [serverField, tokenField, tokenPlainField, sourceField].forEach { $0.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true }
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true
+
+        let tokenFields = NSStackView(views: [tokenField, tokenPlainField])
+        let pasteButton = NSButton(title: "Paste", target: self, action: #selector(pasteToken))
+        pasteButton.controlSize = .small
+        showTokenCheck.controlSize = .small
+        showTokenCheck.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        showTokenCheck.target = self
+        showTokenCheck.action = #selector(toggleShowToken)
+        let tokenTools = NSStackView(views: [pasteButton, showTokenCheck])
+        tokenTools.spacing = 12
 
         let testButton = NSButton(title: "Test connection", target: self, action: #selector(testConnection))
         let hint = NSTextField(wrappingLabelWithString: "Leave the server empty to show the simulated mesh. Create an API token in MeshMonitor under User Settings.")
@@ -82,7 +121,8 @@ final class ConfigureSheetController: NSObject {
         let grid = NSGridView(views: [
             [header("MeshMonitor"), NSGridCell.emptyContentView],
             [label("Server"), serverField],
-            [label("API token"), tokenField],
+            [label("API token"), tokenFields],
+            [NSGridCell.emptyContentView, tokenTools],
             [label("Source"), sourceField],
             [NSGridCell.emptyContentView, NSStackView(views: [testButton])],
             [NSGridCell.emptyContentView, statusLabel],
@@ -98,7 +138,7 @@ final class ConfigureSheetController: NSObject {
         grid.rowAlignment = .firstBaseline
         grid.columnSpacing = 10
         grid.column(at: 0).xPlacement = .trailing
-        for row in [0, 7, 10] {
+        for row in [0, 8, 11] { // the section headers
             grid.row(at: row).topPadding = row == 0 ? 0 : 10
             grid.row(at: row).mergeCells(in: NSRange(location: 0, length: 2))
             grid.cell(atColumnIndex: 0, rowIndex: row).xPlacement = .leading
@@ -155,6 +195,7 @@ final class ConfigureSheetController: NSObject {
     private func load() {
         serverField.stringValue = settings.server
         tokenField.stringValue = settings.token
+        tokenPlainField.stringValue = settings.token
         sourceField.stringValue = settings.source == "default" ? "" : settings.source
         backgroundWell.color = Self.color(settings.background)
         dotsWell.color = Self.color(settings.dots)
@@ -169,9 +210,9 @@ final class ConfigureSheetController: NSObject {
     }
 
     private func readFields() {
-        settings.server = serverField.stringValue.trimmingCharacters(in: .whitespaces)
-        settings.token = tokenField.stringValue.trimmingCharacters(in: .whitespaces)
-        let source = sourceField.stringValue.trimmingCharacters(in: .whitespaces)
+        settings.server = serverField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        settings.token = currentToken
+        let source = sourceField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         settings.source = source.isEmpty ? "default" : source
         settings.background = Self.hex(backgroundWell.color)
         settings.dots = Self.hex(dotsWell.color)
@@ -218,6 +259,32 @@ final class ConfigureSheetController: NSObject {
     }
 
     @objc private func colorChanged() { selectMatchingPreset() }
+
+    private var currentToken: String {
+        (showTokenCheck.state == .on ? tokenPlainField : tokenField).stringValue
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Fills the token straight from the clipboard, whatever the host does with ⌘V.
+    @objc private func pasteToken() {
+        guard let text = NSPasteboard.general.string(forType: .string)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            statusLabel.stringValue = "The clipboard has no text to paste"
+            return
+        }
+        tokenField.stringValue = text
+        tokenPlainField.stringValue = text
+        statusLabel.stringValue = "Pasted a token of \(text.count) characters"
+    }
+
+    @objc private func toggleShowToken() {
+        let show = showTokenCheck.state == .on
+        let text = (show ? tokenField : tokenPlainField).stringValue
+        tokenField.stringValue = text
+        tokenPlainField.stringValue = text
+        tokenField.isHidden = show
+        tokenPlainField.isHidden = !show
+    }
 
     @objc private func labelModeChanged() {
         let custom = Self.labelModes[max(0, labelPopup.indexOfSelectedItem)].0 == "custom"

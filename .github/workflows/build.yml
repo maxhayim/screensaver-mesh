@@ -29,6 +29,7 @@ jobs:
           swiftc tools/preview.swift -o build/preview -framework ScreenSaver
           mkdir -p shots
           build/preview build/Mesh.saver shots/macos-simulated.png 3
+          build/preview build/Mesh.saver - --paste-test
           python3 tools/mock_meshmonitor.py 8787 &
           sleep 1
           defaults -currentHost write com.maxhayim.screensaver-mesh server "http://127.0.0.1:8787"
