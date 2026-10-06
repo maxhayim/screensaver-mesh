@@ -11,9 +11,9 @@
   </a>
 </p>
 
-# 📡 Mesh Screensaver
+# Mesh Screensaver
 
-Your [**Meshtastic**](https://meshtastic.org/) mesh as a screen saver, on **Windows, macOS, and Linux**. Your nodes drift across a dark screen, links join the ones in reach, and every message sent on the mesh travels across it as an orange packet, live from your own [**MeshMonitor**](https://github.com/Yeraze/MeshMonitor).
+Your [**Meshtastic**](https://meshtastic.org/) and [**MeshCore**](https://meshcore.io) mesh as a screen saver, on **Windows, macOS, and Linux**. Your nodes drift across a dark screen, links join the ones in reach, and every message sent on the mesh travels across it as an orange packet, live from your own [**MeshMonitor**](https://github.com/Yeraze/MeshMonitor).
 
 <p align="center">
   <img src="docs/assets/screenshot.png" alt="The Mesh screen saver showing a live mesh" width="760"/>
@@ -211,5 +211,6 @@ Pull requests are welcome. Open an issue first to discuss ideas or report bugs. 
 
 * [MeshMonitor](https://github.com/Yeraze/MeshMonitor) built by [Yeraze](https://github.com/Yeraze)
 * [Meshtastic](https://meshtastic.org/)
+* [MeshCore](https://meshcore.io)]
 * [XScreenSaver](https://www.jwz.org/xscreensaver/) by Jamie Zawinski
 * [cairo](https://www.cairographics.org/) and [libcurl](https://curl.se/libcurl/) on Linux
