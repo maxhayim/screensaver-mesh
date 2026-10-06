@@ -39,7 +39,7 @@ jobs:
         run: |
           VERSION=$(cat VERSION)
           mkdir -p dist
-          ditto -c -k --keepParent build/Mesh.saver "dist/Mesh-$VERSION-macos.zip"
+          ditto -c -k --keepParent build/Mesh.saver "dist/screensaver-mesh-$VERSION-macos.zip"
       - uses: actions/upload-artifact@v5
         with: { name: macos, path: dist/ }
       - uses: actions/upload-artifact@v5
@@ -119,7 +119,7 @@ jobs:
           VERSION=$(cat VERSION)
           mkdir -p dist pkg
           cp build/Mesh.scr windows/INSTALL.txt LICENSE pkg/
-          (cd pkg && zip -q "../dist/Mesh-$VERSION-windows.zip" *)
+          (cd pkg && zip -q "../dist/screensaver-mesh-$VERSION-windows.zip" *)
       - uses: actions/upload-artifact@v5
         with: { name: windows, path: dist/ }
       - uses: actions/upload-artifact@v5
@@ -219,11 +219,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          # The notes are this version's section of CHANGELOG.md.
+          # The release's name is the tag's message: git tag -a v1.2.3 -m "Short Name"
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          NAME=$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents:subject)')
+          case "$NAME" in ""|"Mesh $VERSION") NAME="" ;; esac
+          TITLE="$GITHUB_REF_NAME${NAME:+ — $NAME}"
+
+          # This version's section of CHANGELOG.md, then how to install it.
           awk -v v="$VERSION" '
-            /^## / { if (found) exit; if (index($0, "## " v) == 1) { found = 1; next } }
+            /^## / { if (found) exit; if (index($0, "## [" v "]") == 1) { found = 1; next } }
             found { print }
-          ' CHANGELOG.md > notes.md
-          test -s notes.md || { echo "No CHANGELOG section for $VERSION"; exit 1; }
-          gh release create "$GITHUB_REF_NAME" --title "Mesh $VERSION" --notes-file notes.md \
+          ' CHANGELOG.md > section.md
+          test -s section.md || { echo "No CHANGELOG section for $VERSION"; exit 1; }
+          {
+            echo "## Mesh Screensaver $TITLE"
+            cat section.md
+            echo "### Compatibility"
+            echo "- **macOS 11 and later:** unzip \`screensaver-mesh-$VERSION-macos.zip\` and double-click \`Mesh.saver\`. It isn't notarized, so the first time, click **Open Anyway** in System Settings → Privacy & Security."
+            echo "- **Windows 10 and 11:** unzip \`screensaver-mesh-$VERSION-windows.zip\`, then right-click \`Mesh.scr\` and choose **Install**. It isn't code-signed, so click **More info → Run anyway** the first time."
+            echo "- **Linux with XScreenSaver:** unpack \`screensaver-mesh-$VERSION-linux-x86_64.tar.gz\` and run \`./install.sh\`."
+            echo "- Installing over an earlier version keeps your settings."
+          } > notes.md
+          cat notes.md
+          gh release create "$GITHUB_REF_NAME" --title "$TITLE" --notes-file notes.md \
             artifacts/macos/* artifacts/windows/* artifacts/linux/*

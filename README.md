@@ -1,23 +1,61 @@
-# Mesh — a Meshtastic screen saver
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Mesh screen saver" width="200"/>
+</p>
+<p align="center">
+  <a href="https://github.com/Yeraze/MeshMonitor">
+    <img src="https://img.shields.io/badge/MeshMonitor-API%20v1-orange" alt="MeshMonitor API v1">
+  </a>
+  <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Windows, macOS, Linux">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+  </a>
+</p>
 
-Your mesh network as a screen saver, for macOS, Windows, and Linux. Nodes drift across a dark screen, links join the ones in reach, and every message sent on your mesh travels across it as an orange packet.
+# 📡 Mesh Screensaver
 
-It reads live data from [MeshMonitor](https://github.com/Yeraze/meshmonitor) for Meshtastic:
+Your [**Meshtastic**](https://meshtastic.org/) mesh as a screen saver, on **Windows, macOS, and Linux**. Your nodes drift across a dark screen, links join the ones in reach, and every message sent on the mesh travels across it as an orange packet, live from your own [**MeshMonitor**](https://github.com/Yeraze/MeshMonitor).
 
-- **The dots are your nodes:** the active nodes MeshMonitor has heard in the last 7 days, up to 160.
-- **Every message moves the mesh:** the packet hops along the links from sender to recipient. A broadcast ripples out three hops. The sender pulses and nearby nodes get a nudge, then drift back.
-- **No MeshMonitor?** Leave the server blank and you get a simulated mesh. If the server stops answering, the saver falls back to it too.
+<p align="center">
+  <img src="docs/assets/screenshot.png" alt="The Mesh screen saver showing a live mesh" width="760"/>
+</p>
 
-Message text is never shown on screen.
+This repository contains:
+- **core/** — the drawing core and the MeshMonitor client in plain C, shared by all three systems
+- **macos/** — the `.saver` for macOS (Swift)
+- **windows/** — the `.scr` for Windows (C, GDI+)
+- **linux/** — the XScreenSaver hack for Linux (C, cairo)
+- **tests/** and **tools/** — tests, a fake MeshMonitor, and a preview renderer
+- **docs/** — the developer guide, the logo, and the screenshot
 
-## Download
+---
 
-Get the file for your computer from [Releases](../../releases):
+## What it shows
 
-| OS | File |
+| On screen | What it means |
 | --- | --- |
-| macOS 11 and later (Apple silicon and Intel) | `Mesh-<version>-macos.zip` |
-| Windows 10 and 11 (64-bit) | `Mesh-<version>-windows.zip` |
+| **Dots** | Your active nodes: the ones MeshMonitor heard in the last 7 days, up to 160 |
+| **Lines** | Nodes that are near each other on screen. The layout is for looks; it isn't a map or the radio links |
+| **Orange packet** | A message, hopping along the lines from sender to recipient |
+| **Ripple** | A broadcast, spreading three hops out from the sender |
+| **Pulse** | The sender of a message; nearby nodes get a nudge and drift back |
+| **Clock** | The time, with Mesh, your name, or your own text under it, and "live" while connected |
+
+Design goals:
+- Free, with nothing to sign up for beyond your own MeshMonitor
+- Message text is never shown on screen
+- Works without a server: a simulated mesh until MeshMonitor answers, and again if it stops
+- Small native programs on every system, no web view
+
+---
+
+## Installing
+
+Download the file for your computer from the [latest release](https://github.com/maxhayim/screensaver-mesh/releases/latest):
+
+| System | File |
+| --- | --- |
+| macOS 11 and later (Apple silicon and Intel) | `screensaver-mesh-<version>-macos.zip` |
+| Windows 10 and 11 (64-bit) | `screensaver-mesh-<version>-windows.zip` |
 | Linux with XScreenSaver (x86-64) | `screensaver-mesh-<version>-linux-x86_64.tar.gz` |
 
 Mesh isn't code-signed or notarized (that costs money every year), so macOS and Windows warn you the first time. The steps below get you past that once.
@@ -26,7 +64,7 @@ Mesh isn't code-signed or notarized (that costs money every year), so macOS and 
 
 1. Unzip and double-click `Mesh.saver`, then choose to install it for this user.
 2. macOS blocks it the first time. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**. Or run this in Terminal:
-   ```sh
+   ```
    xattr -d com.apple.quarantine ~/Library/Screen\ Savers/Mesh.saver
    ```
 3. Choose **Mesh** in **System Settings → Screen Saver**, and click **Options…** to set it up.
@@ -46,49 +84,109 @@ Mesh isn't code-signed or notarized (that costs money every year), so macOS and 
 
 GNOME and KDE don't support third-party screen savers, so XScreenSaver is the way to run it on Linux.
 
-## Settings
+### Updating
 
-- **Server:** your MeshMonitor address, like `https://meshmonitor.example.com` or `http://192.168.1.20:8080`. With no `http://` or `https://`, it uses `https://`.
-- **API token:** create one in MeshMonitor under **User Settings** (it starts with `mm_v1_`). Read access to nodes and messages is enough.
-- **Source:** leave blank to use your first source, or enter a source ID from MeshMonitor.
-- **Colors:** dots, lines, packets, and background, with presets: Default, Meshtastic, Green terminal, Amber terminal, and Paper.
-- **Clock:** show it or hide it, in 12- or 24-hour time.
-- **Label:** the line under the clock: **Mesh**, **your name** (the full name on your computer account), or **custom text**, like your call sign. In live mode " · live" is added after it.
+Install the new release over the old one: double-click the new `Mesh.saver` on macOS, replace `Mesh.scr` in the same folder on Windows, or run the new `install.sh` on Linux. Your settings carry over.
 
-On macOS and Windows these are in the saver's Options/Settings window, which also has **Test connection**. On Linux they go in the config file; the XScreenSaver settings page also has the server, color presets, clock, and label. Keep the token in the config file: anything set on that page ends up on the command line, where other users of the computer can see it.
+---
 
-Where the token is stored: macOS keeps it in the screen saver's preferences in your user Library, Windows in the registry under `HKEY_CURRENT_USER\Software\maxhayim\screensaver-mesh`, Linux in your config file. None of them use a keychain.
+## Using it
 
-## How it works
+### MeshMonitor
 
-- `core/`: plain C99 shared by all three. `mesh.c` runs the simulation and draws through two callbacks (`line` and `circle`), so each OS only supplies its own 2D drawing. `meshmonitor.c` and `json.c` handle the API for Windows and Linux.
-- `macos/`: Swift `ScreenSaverView`, a URLSession client, and the Options sheet.
-- `windows/`: Win32 + GDI+, WinHTTP on a worker thread, settings dialog.
-- `linux/`: an XScreenSaver hack with Xlib + cairo, libcurl on a worker thread.
-- MeshMonitor has no push feed, so the saver asks `GET /api/v1/sources/{source}/messages?limit=50` every 4 seconds and animates any messages it hasn't seen. Nodes refresh every 5 minutes from `GET /api/v1/sources/{source}/nodes?active=true&sinceDays=7`.
+1. In MeshMonitor, create an API token under **User Settings** (it starts with `mm_v1_`). A read-only user is plenty: Mesh only reads nodes and messages.
+2. In Mesh's settings, enter the server, like `https://meshmonitor.example.com` or `http://192.168.1.20:8080` (with no `http://` or `https://`, it uses `https://`), and the token. On macOS, **Paste** fills the token from the clipboard and **Show** lets you check it.
+3. Leave **Source** blank to use your first source, or enter a source ID from MeshMonitor.
+4. Click **Test connection** (macOS and Windows). It shows how many active nodes it found.
 
-## Build
+Mesh is a program, not a web page, so there's nothing to add to MeshMonitor's `ALLOWED_ORIGINS`.
 
-```sh
-macos/build.sh      # build/Mesh.saver; needs the Xcode command-line tools
-windows/build.sh    # build/Mesh.scr; cross-compiles with mingw-w64
-make -C linux       # build/screensaver-mesh; needs libx11, cairo, libcurl dev packages
+### Colors
+
+Pick dots, lines, packets, and background, or start from a preset: **Default**, **Meshtastic**, **Green terminal**, **Amber terminal**, or **Paper**.
+
+### Clock and label
+
+Show the clock or hide it, in 12- or 24-hour time. The line under it can say **Mesh**, **your name** (the full name on your computer account), or **your own text**, like a call sign.
+
+### Where the settings are
+
+- **macOS:** **Options…** next to Mesh in **System Settings → Screen Saver**
+- **Windows:** **Settings** in **Screen Saver Settings**
+- **Linux:** `~/.config/screensaver-mesh/config` (see `config.example`). The XScreenSaver settings page also has the server, color presets, clock, and label; keep the token in the config file, because options on that page end up on the command line, where other users of the computer can see them.
+
+---
+
+## Privacy
+
+- Mesh talks only to your MeshMonitor server. Nothing is sent anywhere else.
+- It never shows message text, and never shows node names or IDs.
+- The token is kept on your computer, in plain storage rather than a keychain: in the screen saver's preferences on macOS, in the registry under `HKEY_CURRENT_USER\Software\maxhayim\screensaver-mesh` on Windows, and in your config file on Linux. Use a read-only MeshMonitor token.
+- While the screen saver runs, it asks MeshMonitor for new messages every 4 seconds and for nodes every 5 minutes.
+
+---
+
+## Repository layout
+
+```
+core/mesh.c           the simulation and drawing, through two callbacks (line, circle)
+core/meshmonitor.c    MeshMonitor settings, URLs, and responses (Windows and Linux)
+core/json.c           a small JSON reader
+macos/                the .saver: the view, the MeshMonitor client, the Options sheet
+windows/              the .scr: Win32 + GDI+, WinHTTP, the settings dialog
+linux/                the XScreenSaver hack, its settings XML, installer, and example config
+tests/                core and MeshMonitor tests
+tools/                a fake MeshMonitor and the macOS preview renderer
+docs/GUIDE.md         developer guide
+docs/assets/          logo and screenshot
 ```
 
-Tests and tools:
+---
 
-```sh
-cc -std=c99 -Icore core/mesh.c tests/test_mesh.c -lm -o build/test_mesh && build/test_mesh
-cc -std=c99 -Icore core/json.c core/meshmonitor.c tests/test_meshmonitor.c -o build/test_mm && build/test_mm
-python3 tools/mock_meshmonitor.py                         # fake MeshMonitor on :8787, token mm_v1_test
-swiftc tools/preview.swift -o build/preview -framework ScreenSaver
-build/preview build/Mesh.saver shot.png 5                 # macOS: render 5 seconds to a PNG
-build/screensaver-mesh -render 5 shot.png                 # Linux: same, no X needed
-Mesh.exe /x 5 shot.bmp                                    # Windows: same (a copy of Mesh.scr)
+## Changing it
+
+See [docs/GUIDE.md](docs/GUIDE.md).
+
+```
+macos/build.sh        # build/Mesh.saver (needs the Xcode command-line tools)
+windows/build.sh      # build/Mesh.scr (cross-compiles with mingw-w64)
+make -C linux         # build/screensaver-mesh (needs libx11, cairo, and libcurl dev packages)
 ```
 
-GitHub Actions builds and tests all three on every push, and publishes a release for every `v*` tag.
+GitHub Actions builds and tests all three on every push, and publishes a release for every version tag.
+
+---
+
+## Versioning
+
+This project follows semantic versioning.
+
+- **v0.1.2** — pasting the API token works on macOS
+- **v0.1.1** — `http://` servers on macOS, a picture in the screen saver list, and your own label under the clock
+- **v0.1.0** — the Mesh screen saver for macOS, Windows, and Linux, live from MeshMonitor
+
+See [CHANGELOG.md](CHANGELOG.md) for details.
+
+---
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+This project is licensed under the MIT License.
+
+See the [LICENSE](LICENSE) file for details.  
+Full license text: https://opensource.org/licenses/MIT
+
+---
+
+## Contributing
+
+Pull requests are welcome. Open an issue first to discuss ideas or report bugs. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Acknowledgments
+
+* [MeshMonitor](https://github.com/Yeraze/MeshMonitor) built by [Yeraze](https://github.com/Yeraze)
+* [Meshtastic](https://meshtastic.org/)
+* [XScreenSaver](https://www.jwz.org/xscreensaver/) by Jamie Zawinski
+* [cairo](https://www.cairographics.org/) and [libcurl](https://curl.se/libcurl/) on Linux
