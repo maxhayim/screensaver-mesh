@@ -2,6 +2,14 @@
 
 All notable changes to the Mesh screen saver are documented here.
 
+## [Unreleased]
+
+### Added
+- **Screenshots** in the README, under their own heading: the live demo, live mode, each color preset, the clock with your own text, and the settings on macOS and Windows (`docs/screenshots/`).
+
+### Changed
+- Tests and examples use the placeholder call sign N0CALL.
+
 ## [0.2.0] - 2026-10-06
 
 ### Added

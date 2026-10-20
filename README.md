@@ -15,10 +15,6 @@
 
 Your [**Meshtastic**](https://meshtastic.org/) and [**MeshCore**](https://meshcore.io) mesh as a screen saver, on **Windows, macOS, and Linux**. Your nodes drift across a dark screen, links join the ones in reach, and every message sent on the mesh travels across it as an orange packet, live from your own [**MeshMonitor**](https://github.com/Yeraze/MeshMonitor). See it live on [maxhayim.com](https://maxhayim.com).
 
-<p align="center">
-  <img src="docs/assets/screenshot.png" alt="The Mesh screen saver showing a live mesh" width="760"/>
-</p>
-
 This repository contains:
 - **core/** — the drawing core and the MeshMonitor client in plain C, shared by all three systems
 - **macos/** — the `.saver` for macOS (Swift)
@@ -26,7 +22,41 @@ This repository contains:
 - **linux/** — the XScreenSaver hack for Linux (C, cairo)
 - **web/** — the same saver for web pages: the C core as WebAssembly, drawn in a canvas
 - **tests/** and **tools/** — tests, a fake MeshMonitor, and a preview renderer
-- **docs/** — the developer guide, the logo, and the screenshot
+- **docs/** — the developer guide, the logo, and the screenshots
+
+---
+
+## Screenshots
+
+All screenshots are of the screen saver itself, connected to a test MeshMonitor with 40 nodes, except the first.
+
+**Live demo** on [maxhayim.com](https://maxhayim.com)
+
+![The Mesh screen saver on maxhayim.com](docs/assets/screenshot.png)
+
+**Live**: Default colors. Your nodes, messages hopping between them with the sender's pulse, and the clock
+
+![Live, with Default colors](docs/screenshots/live.png)
+
+**Colors**: Meshtastic, Green terminal, Amber terminal and Paper
+
+<p>
+  <img src="docs/screenshots/meshtastic.png" alt="Meshtastic colors" width="49%"/>
+  <img src="docs/screenshots/green-terminal.png" alt="Green terminal colors" width="49%"/>
+  <img src="docs/screenshots/amber-terminal.png" alt="Amber terminal colors" width="49%"/>
+  <img src="docs/screenshots/paper.png" alt="Paper colors" width="49%"/>
+</p>
+
+**Clock**: 24-hour time, with your own text under it
+
+![24-hour clock with a call sign under it](docs/screenshots/clock-label.png)
+
+**Settings**: Options on macOS, and Settings on Windows
+
+<p>
+  <img src="docs/screenshots/options-macos.png" alt="Options on macOS" width="40%"/>
+  <img src="docs/screenshots/settings-windows.png" alt="Settings on Windows" width="49%"/>
+</p>
 
 ---
 
@@ -157,7 +187,8 @@ package.json          lets a page install the web version from GitHub
 tests/                core and MeshMonitor tests
 tools/                a fake MeshMonitor and the macOS preview renderer
 docs/GUIDE.md         developer guide
-docs/assets/          logo and screenshot
+docs/assets/          logo and the demo screenshot
+docs/screenshots/     screenshots of the saver and its settings
 ```
 
 ---
