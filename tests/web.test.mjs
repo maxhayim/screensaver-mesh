@@ -115,11 +115,11 @@ await test("label and 24-hour clock", async () => {
     settings: { use24Hour: true, label: "user" }, userName: "Max Hayim", now: () => new Date(2026, 0, 1, 7, 5),
   });
   await sleep(300);
-  saver.update({ label: "custom", labelText: "KO4XYZ" });
+  saver.update({ label: "custom", labelText: "N0CALL" });
   await sleep(200);
   saver.destroy();
   assert.ok(frames.some((f) => f.text.join("|") === "Max Hayim|07:05"));
-  assert.deepEqual(frames.at(-1).text, ["KO4XYZ", "07:05"]);
+  assert.deepEqual(frames.at(-1).text, ["N0CALL", "07:05"]);
 });
 
 await test("live: goes live, animates new messages, doesn't replay old ones", async () => {

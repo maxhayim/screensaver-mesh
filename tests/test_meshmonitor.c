@@ -67,9 +67,9 @@ int main(void) {
     mm_label(label, sizeof label, &l, NULL, 0);
     CHECK(!strcmp(label, "Mesh"));
     mm_settings_set(&l, "label", "custom");
-    mm_settings_set(&l, "label_text", "KO4XYZ base");
+    mm_settings_set(&l, "label_text", "N0CALL base");
     mm_label(label, sizeof label, &l, "Max", 0);
-    CHECK(!strcmp(label, "KO4XYZ base"));
+    CHECK(!strcmp(label, "N0CALL base"));
     mm_settings_set(&l, "label_text", "");
     mm_label(label, sizeof label, &l, "Max", 0);
     CHECK(!strcmp(label, ""));
