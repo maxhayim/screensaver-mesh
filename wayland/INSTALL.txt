@@ -1,0 +1,38 @@
+Mesh wallpaper for Wayland
+==========================
+
+A live wallpaper for compositors with wlr-layer-shell: Hyprland, Sway,
+river, niri, Wayfire, labwc, KDE Plasma. (GNOME has no layer-shell.)
+
+1. Run ./install.sh
+   It copies mesh-wallpaper to ~/.local/bin and a systemd user unit to
+   ~/.config/systemd/user. No sudo.
+
+2. Edit ~/.config/screensaver-mesh/config
+   Put in your MeshMonitor server and API token. Without them the
+   wallpaper draws a simulated mesh. The file is read again whenever
+   you save it.
+
+3. Start it
+     systemctl --user enable --now mesh-wallpaper.service
+   or add it to your compositor's config:
+     Hyprland:  exec-once = ~/.local/bin/mesh-wallpaper
+     Sway:      exec ~/.local/bin/mesh-wallpaper
+
+It draws above any wallpaper that was started before it (hyprpaper,
+swaybg...). You can leave that one running, or stop it to save its memory.
+
+If your desktop shell draws its own wallpaper, tell it to stop, or the
+two will cover each other in whichever order they start. In
+DankMaterialShell: Settings, Wallpaper, "Use external manager".
+Under Hyprland, Mesh also puts itself back on top by itself.
+
+For the smoothest motion, set fps = 0 and idle_fps = 0 in the config:
+a frame for every refresh of the monitor.
+
+To remove it:
+  systemctl --user disable --now mesh-wallpaper.service
+  rm ~/.local/bin/mesh-wallpaper ~/.config/systemd/user/mesh-wallpaper.service
+
+It needs the libraries most Wayland desktops already have: libwayland,
+EGL and OpenGL ES 2 (Mesa), cairo, and libcurl.

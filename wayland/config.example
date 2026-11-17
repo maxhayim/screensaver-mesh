@@ -1,0 +1,49 @@
+# ~/.config/screensaver-mesh/config
+# The same file as the XScreenSaver hack: each reads the keys it knows.
+# mesh-wallpaper reads it again whenever it changes; no restart needed.
+
+# Without a server and token the wallpaper draws a simulated mesh.
+# server = https://meshmonitor.example.com
+# token = mm_v1_your_token_here
+# source = default
+
+# Colors: pick a preset, or set each one. Give the background an alpha
+# (#rrggbbaa) to let the wallpaper underneath show through.
+# preset = meshtastic
+# background = #0b0b0a
+# dots = #eeebe4
+# lines = #eeebe4
+# packets = #f06a2a
+
+# clock = yes
+# 24hour = no
+
+# Under the clock: mesh (the default), user (your name), or custom (label_text).
+# label = custom
+# label_text = N0CALL base
+
+# --- Wallpaper only ---
+
+# Frames per second while packets are moving, and while the nodes only drift.
+# 0 draws on every refresh of the monitor. A lower idle_fps is what keeps the
+# wallpaper cheap: on most meshes it is idle nearly all the time.
+# fps = 60
+# idle_fps = 30
+
+# Draw less often while the compositor can't keep up (something else needs the
+# GPU), and speed up again when it can.
+# yield = yes
+
+# Only these monitors (names as in `hyprctl monitors` or `swaymsg -t get_outputs`). Default: all.
+# output = DP-1, HDMI-A-1
+
+# Hyprland only. Stop drawing behind a full-screen window, and go back on top
+# when another wallpaper is started after this one.
+# pause_fullscreen = yes
+# keep_on_top = yes
+
+# Hyprland only. How many times a second the blur behind translucent windows
+# catches up with the mesh. Hyprland blurs the whole wallpaper again each time
+# it is told the wallpaper changed, which is slow on an integrated GPU, so the
+# mesh tells it only this often. 0 tells it on every frame.
+# blur_fps = 4

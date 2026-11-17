@@ -20,6 +20,7 @@ This repository contains:
 - **macos/** — the `.saver` for macOS (Swift)
 - **windows/** — the `.scr` for Windows (C, GDI+)
 - **linux/** — the XScreenSaver hack for Linux (C, cairo)
+- **wayland/** — a live wallpaper for Wayland compositors with layer-shell, such as Hyprland and Sway (C, OpenGL ES)
 - **web/** — the same saver for web pages: the C core as WebAssembly, drawn in a canvas
 - **tests/** and **tools/** — tests, a fake MeshMonitor, and a preview renderer
 - **docs/** — the developer guide, the logo, and the screenshots
@@ -88,6 +89,7 @@ Download the file for your computer from the [latest release](https://github.com
 | macOS 11 and later (Apple silicon and Intel) | `screensaver-mesh-<version>-macos.zip` |
 | Windows 10 and 11 (64-bit) | `screensaver-mesh-<version>-windows.zip` |
 | Linux with XScreenSaver (x86-64) | `screensaver-mesh-<version>-linux-x86_64.tar.gz` |
+| Linux on Wayland, as a live wallpaper (x86-64) | `screensaver-mesh-<version>-wayland-x86_64.tar.gz` |
 
 Mesh isn't code-signed or notarized (that costs money every year), so macOS and Windows warn you the first time. The steps below get you past that once.
 
@@ -114,6 +116,27 @@ Mesh isn't code-signed or notarized (that costs money every year), so macOS and 
 4. Choose **Mesh** in `xscreensaver-settings`. Try it in a window first with `./screensaver-mesh`.
 
 GNOME and KDE don't support third-party screen savers, so XScreenSaver is the way to run it on Linux.
+
+### Linux on Wayland (live wallpaper)
+
+XScreenSaver needs X11. On Wayland, Mesh is a live wallpaper instead of a screen saver: it runs all the time, behind your windows, not only when the computer is idle. It is the same mesh, clock, and live mode, on every monitor.
+
+It needs a compositor with the `wlr-layer-shell` protocol: Hyprland, Sway, river, niri, Wayfire, labwc, and KDE Plasma have it. GNOME doesn't, so it can't run there.
+
+1. Unpack the tarball and run `./install.sh` (no sudo: it installs to `~/.local/bin`).
+2. Add your server and token to `~/.config/screensaver-mesh/config`. It is the same file the XScreenSaver hack reads, and the wallpaper picks up changes as soon as you save.
+3. Start it with `systemctl --user enable --now mesh-wallpaper.service`, or from your compositor's config (`exec-once = ~/.local/bin/mesh-wallpaper` on Hyprland, `exec ~/.local/bin/mesh-wallpaper` on Sway).
+
+It draws above a wallpaper that was started before it, such as hyprpaper or swaybg. If your desktop shell draws its own wallpaper, tell it to stop, or the two cover each other in whichever order they start: in DankMaterialShell that is **Settings → Wallpaper → Use external manager**. Under Hyprland, Mesh also puts itself back on top by itself.
+
+Because it runs all day, it is drawn on the GPU and paced by the compositor, so it stays out of your way: nothing at all for a monitor that is off, and under Hyprland nothing behind a full-screen window. When something else needs the GPU and the compositor falls behind, the wallpaper draws less often until it has caught up. It keeps one connection to MeshMonitor open, and a poll with nothing new is an empty answer.
+
+**Frame rate.** Two keys in the config set how often it draws:
+
+- `fps` is the most frames a second while packets are moving (60 unless you change it).
+- `idle_fps` is the most frames a second while the nodes only drift (30), which on most meshes is nearly all the time, so this is the one that decides what the wallpaper costs.
+
+Lower numbers use less GPU and power; higher ones move more smoothly. Each is rounded to a whole number of the monitor's refreshes, and `0` means a frame on every refresh, so set both to `0` to run at the monitor's refresh rate.
 
 ### Web pages
 
@@ -160,6 +183,7 @@ Show the clock or hide it, in 12- or 24-hour time. The line under it can say **M
 
 - **macOS:** **Options…** next to Mesh in **System Settings → Screen Saver**
 - **Windows:** **Settings** in **Screen Saver Settings**
+- **Wayland wallpaper:** the same `~/.config/screensaver-mesh/config`, with a few keys of its own for the frame rate and the monitors to use (see `wayland/config.example`)
 - **Linux:** `~/.config/screensaver-mesh/config` (see `config.example`). The XScreenSaver settings page also has the server, color presets, clock, and label; keep the token in the config file, because options on that page end up on the command line, where other users of the computer can see them.
 
 ---
@@ -169,7 +193,7 @@ Show the clock or hide it, in 12- or 24-hour time. The line under it can say **M
 - Mesh talks only to your MeshMonitor server. Nothing is sent anywhere else.
 - It never shows message text, and never shows node names or IDs.
 - The token is kept on your computer, in plain storage rather than a keychain: in the screen saver's preferences on macOS, in the registry under `HKEY_CURRENT_USER\Software\maxhayim\screensaver-mesh` on Windows, and in your config file on Linux. Use a read-only MeshMonitor token.
-- While the screen saver runs, it asks MeshMonitor for new messages every 4 seconds and for nodes every 5 minutes.
+- While the screen saver runs, it asks MeshMonitor for new messages every 4 seconds and for nodes every 5 minutes. The Wayland wallpaper runs all day, so it stops asking while no monitor is showing it.
 
 ---
 
@@ -182,6 +206,7 @@ core/json.c           a small JSON reader
 macos/                the .saver: the view, the MeshMonitor client, the Options sheet
 windows/              the .scr: Win32 + GDI+, WinHTTP, the settings dialog
 linux/                the XScreenSaver hack, its settings XML, installer, and example config
+wayland/              the layer-shell wallpaper: surfaces, OpenGL ES drawing, polling, Hyprland IPC
 web/                  the web version: bridge.c, index.js, and the built mesh.wasm (committed)
 package.json          lets a page install the web version from GitHub
 tests/                core and MeshMonitor tests
@@ -201,6 +226,7 @@ See [docs/GUIDE.md](docs/GUIDE.md).
 macos/build.sh        # build/Mesh.saver (needs the Xcode command-line tools)
 windows/build.sh      # build/Mesh.scr (cross-compiles with mingw-w64)
 make -C linux         # build/screensaver-mesh (needs libx11, cairo, and libcurl dev packages)
+make -C wayland       # build/mesh-wallpaper (needs wayland, wayland-protocols, EGL, GLES 2, cairo, libcurl)
 web/build.sh          # web/mesh.wasm and its generated files (needs zig and node)
 ```
 
@@ -245,3 +271,4 @@ Pull requests are welcome. Open an issue first to discuss ideas or report bugs. 
 * [MeshCore](https://meshcore.io)]
 * [XScreenSaver](https://www.jwz.org/xscreensaver/) by Jamie Zawinski
 * [cairo](https://www.cairographics.org/) and [libcurl](https://curl.se/libcurl/) on Linux
+* [Wayland](https://wayland.freedesktop.org/), the [wlr-layer-shell](https://gitlab.freedesktop.org/wlroots/wlr-protocols) protocol from wlroots, and [Mesa](https://mesa3d.org/) for the wallpaper

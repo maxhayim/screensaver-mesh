@@ -27,6 +27,15 @@ linux/
   mesh_x11.c              the hack: Xlib + cairo, libcurl, config file and flags, -render test mode
   screensaver-mesh.xml    the XScreenSaver settings page
   Makefile, install.sh, config.example, INSTALL.txt
+wayland/
+  mesh_wayland.c          the wallpaper: layer-shell surfaces, frame pacing, settings, -render test mode
+  render_gl.h, .c         draws the core with OpenGL ES 2 in one draw call; the clock texture
+  live.h, .c              the MeshMonitor worker thread (libcurl): ETags, pausing while hidden
+  hyprland.h, .c          optional Hyprland IPC: pause behind full-screen windows, stay on top
+  curl_compat.h           libcurl's declarations, for building where its headers aren't installed
+  protocols/              wlr-layer-shell's XML (not in wayland-protocols)
+  mesh-wallpaper.service  systemd user unit
+  Makefile, install.sh, config.example, INSTALL.txt
 web/
   bridge.c                the core for JavaScript: exports, and two drawing imports
   index.js                the interface: SETTINGS, cleanSettings, createSaver, …
@@ -87,6 +96,21 @@ Mesh uses MeshMonitor's REST API v1, with `Authorization: Bearer <token>`. Every
 - XScreenSaver passes its window in `$XSCREENSAVER_WINDOW`; `-root` and `-window-id` work too. With none of them, Mesh opens its own window, which any key closes.
 - Settings come from `~/.config/screensaver-mesh/config`, then from flags (`-server`, `-token`, `-preset`, `-label`, …). The XScreenSaver XML exposes the server, presets, clock, and label.
 - `-render <seconds> <out.png> [-size WxH] [-preview]` renders off screen with cairo, no X needed.
+
+## Wayland
+
+`wayland/` is a second Linux host: not a screen saver but a live wallpaper, for compositors that implement `wlr-layer-shell` (GNOME does not). It shares the core, the config file, and the flags with the XScreenSaver hack, and never touches X11.
+
+- **Surfaces.** One layer surface per `wl_output` on the background layer, anchored to all four edges with exclusive zone -1 (under bars) and an empty input region (clicks go to the compositor). Each monitor has its own `mesh`, seeded differently, and they all share one MeshMonitor worker. Monitors can come and go. Buffers are sized in real pixels through `wp_fractional_scale_v1` and `wp_viewporter`, falling back to the integer `wl_output` scale. The buffer has no alpha channel unless the background color has one (`#rrggbbaa`, to let a wallpaper underneath show through), so the compositor can draw it without blending.
+- **Drawing.** `render_gl.c` turns every line, dot, and ring into a quad whose fragment shader computes the distance to the shape, so edges are antialiased without multisampling. The clock is rendered by cairo into an alpha texture once a minute and added to the same batch, so a frame is one `glDrawElements` with no state changes. The two clock fonts are created once and kept: asking cairo for a face by name every minute leaves a copy of the font in its cache each time. Frames carry full damage: the links cross the whole screen, so a damage region fine enough to save the compositor work would be hundreds of rectangles a frame.
+- **Pacing.** A frame is drawn only after the compositor's frame callback for the last one, so a monitor that is off or hidden costs nothing. On top of that, `fps` (default 60) applies while packets or rings are moving and `idle_fps` (default 30) while nodes only drift; both are rounded to a whole number of refreshes, and `0` means every refresh. The core's `mesh_step` caps a step at 50 ms, so slow frame rates take several steps per frame.
+- **Yielding.** Because frames wait for the compositor, a compositor that can't keep up shows as frames arriving slower than asked. When a second's worth takes a third longer than asked, the wallpaper halves its rate (then a third, then a quarter), and tries the faster rate again once that has held; each failed attempt doubles the wait before the next, up to a minute. `yield = no` turns it off.
+- **Polling.** `live.c` is the worker from `mesh_x11.c` with three changes: it sends `If-None-Match` and accepts gzip, so a poll with nothing new is an empty `304`; it sleeps while no monitor is showing the wallpaper, and primes the tracker again when it wakes, so old messages aren't replayed as a burst; and once the server is unreachable it retries the node list every 30 seconds instead of waiting for the 5-minute poll.
+- **Hyprland.** `hyprland.c` is optional and only used when Hyprland's sockets are there. Its event socket tells the wallpaper when a full-screen window covers a monitor (stop drawing) and when another client maps a layer surface. Layer-shell stacks surfaces of one layer in map order, so a wallpaper daemon or shell that starts later lands on top; the wallpaper then maps a new surface to get back above it (`keep_on_top`), keeping its mesh. Requests go to the command socket as `j/monitors`, `j/workspaces`, `j/clients`, and `j/layers`, parsed with `core/json.c`.
+- **Hyprland's blur.** Hyprland keeps a blurred copy of the wallpaper for the translucent windows above it, and rebuilds it, redrawing the whole monitor, every time a background layer surface commits. For an animated wallpaper that is a full-screen blur per frame: on an integrated GPU with two 1440p monitors it held a 180 Hz monitor near 95 frames a second, against about 160 with blur off. So under Hyprland the mesh is drawn on a desynchronized subsurface, whose commits only damage what they show, over a layer surface that is a single pixel of the background color stretched by `wp_viewporter`. That layer surface is committed `blur_fps` times a second (default 4) so the blur catches up; at the speed the nodes drift, a blur a quarter of a second old looks the same. `blur_fps = 0`, or any other compositor, draws on the layer surface itself.
+- **Desktop shells.** A shell that draws its own wallpaper on the background layer (DankMaterialShell does, a few seconds after login) covers Mesh if it starts later. Under Hyprland `keep_on_top` handles it; elsewhere the shell's wallpaper has to be turned off (DankMaterialShell: **Use external manager**). Shell widgets on the bottom layer, and bars, stay above the wallpaper as they should.
+- **Settings.** `~/.config/screensaver-mesh/config`, then flags. The keys the core doesn't know (`fps`, `idle_fps`, `yield`, `output`, `pause_fullscreen`, `keep_on_top`, `blur_fps`) are read by the host; the XScreenSaver hack ignores them. The file is watched with inotify and applied without a restart.
+- `-render <seconds> <out.png> [-size WxH]` renders off screen through EGL's surfaceless platform and a framebuffer object, no compositor needed. `MESH_WALLPAPER_DEBUG=1` prints each monitor's frame rate and state every five seconds.
 
 ## Web
 
@@ -163,6 +187,7 @@ To point the preview at the fake server, write settings with `defaults -currentH
 CI (`.github/workflows/build.yml`) runs on every push:
 - **macOS:** tests, the build, previews in simulated and live mode, and the paste test
 - **Linux:** tests, the build, renders, a run under Xvfb, and a run inside a real XScreenSaver
+- **Wayland:** the build, renders in simulated and live mode (software GL), and a run inside a headless Sway
 - **Web:** rebuilds `web/` with zig and checks it matches what's committed, checks `package.json` against `VERSION`, and runs `tests/web.test.mjs`
 - **Windows:** the cross-compile, then on a Windows machine the `/x` renders (live included), `/s` full screen, `/p` inside a real parent window, and the `/c` dialog, with screenshots
 
@@ -178,4 +203,4 @@ Screenshots from every run are kept as workflow artifacts.
    git push origin vx.y.z
    ```
 
-CI builds and tests everything, then publishes the release as **vx.y.z — Name**: the notes are that version's changelog section plus a Compatibility section, with `screensaver-mesh-<version>-macos.zip`, `-windows.zip`, and `-linux-x86_64.tar.gz` attached.
+CI builds and tests everything, then publishes the release as **vx.y.z — Name**: the notes are that version's changelog section plus a Compatibility section, with `screensaver-mesh-<version>-macos.zip`, `-windows.zip`, `-linux-x86_64.tar.gz`, and `-wayland-x86_64.tar.gz` attached.

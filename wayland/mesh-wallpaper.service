@@ -1,0 +1,14 @@
+[Unit]
+Description=Mesh live wallpaper
+Documentation=https://github.com/maxhayim/screensaver-mesh
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=%h/.local/bin/mesh-wallpaper
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

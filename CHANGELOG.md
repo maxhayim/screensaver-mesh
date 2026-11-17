@@ -5,6 +5,7 @@ All notable changes to the Mesh screen saver are documented here.
 ## [Unreleased]
 
 ### Added
+- **Mesh as a live wallpaper on Wayland** (`wayland/`): `mesh-wallpaper` draws the same mesh, clock, and live MeshMonitor mode on the background layer of compositors with `wlr-layer-shell` (Hyprland, Sway, river, niri, Wayfire, labwc, KDE Plasma), on every monitor, at fractional scales, without X11. It reads the same config file as the XScreenSaver hack and applies changes as soon as the file is saved. Drawn with OpenGL ES in one draw call per frame and paced by the compositor: 30 frames a second while nodes drift, 60 while packets move, or every refresh of the monitor with `fps = 0`; nothing for a monitor that is off; less often while the compositor can't keep up. Polls send `If-None-Match`, so a poll with nothing new is an empty answer, and polling stops while the wallpaper isn't shown. Under Hyprland it also stops drawing behind full-screen windows, stays above wallpapers started after it, and draws in a way that lets Hyprland keep its blurred wallpaper cached. Download: `screensaver-mesh-<version>-wayland-x86_64.tar.gz`.
 - **Screenshots** in the README, under their own heading: the live demo, live mode, each color preset, the clock with your own text, and the settings on macOS and Windows (`docs/screenshots/`).
 
 ### Changed

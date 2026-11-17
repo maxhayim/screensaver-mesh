@@ -123,6 +123,62 @@ jobs:
       - uses: actions/upload-artifact@v5
         with: { name: screenshots-linux, path: shots/ }
 
+  wayland:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev wayland-protocols libegl-dev libgles-dev libcairo2-dev \
+            libcurl4-openssl-dev libegl-mesa0 libgl1-mesa-dri sway grim
+      - name: Build
+        run: make -C wayland
+      - name: Build without libcurl's headers
+        run: |
+          mkdir -p build/compat
+          cc -std=gnu99 -Wall -Wextra -Werror -Icore -DMESH_CURL_COMPAT -c wayland/live.c -o build/compat/live.o
+      - name: Render screenshots
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          mkdir -p shots
+          build/mesh-wallpaper -config /dev/null -render 3 shots/wayland-simulated.png
+          python3 tools/mock_meshmonitor.py 8787 &
+          sleep 1
+          build/mesh-wallpaper -config /dev/null -server http://127.0.0.1:8787 -token mm_v1_test \
+            -preset meshtastic -24h -label "N0CALL · Home" -render 9 shots/wayland-live.png | tee live.txt
+          build/mesh-wallpaper -config /dev/null -label-user -render 1 shots/wayland-label-user.png
+          grep -q "live 1" live.txt
+      - name: Run as a wallpaper in a headless Sway
+        env:
+          WLR_BACKENDS: headless
+          WLR_LIBINPUT_NO_DEVICES: "1"
+          WLR_RENDERER: pixman
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          XDG_RUNTIME_DIR: /tmp/runtime
+          WAYLAND_DISPLAY: wayland-1
+        run: |
+          set +e
+          mkdir -p -m 700 "$XDG_RUNTIME_DIR"
+          sway -c /dev/null &
+          sleep 3
+          MESH_WALLPAPER_DEBUG=1 timeout 8 build/mesh-wallpaper -config /dev/null 2> wallpaper.txt; code=$?
+          cat wallpaper.txt
+          [ $code -eq 124 ] || { echo "exited with $code"; exit 1; }
+          grep -q " fps" wallpaper.txt || { echo "it never reported a monitor"; exit 1; }
+          build/mesh-wallpaper -config /dev/null &
+          sleep 3
+          grim shots/wayland-sway.png
+      - name: Package
+        run: |
+          make -C wayland tarball
+          mkdir -p dist && cp build/screensaver-mesh-*-wayland-*.tar.gz dist/
+      - uses: actions/upload-artifact@v5
+        with: { name: wayland, path: dist/ }
+      - uses: actions/upload-artifact@v5
+        with: { name: screenshots-wayland, path: shots/ }
+
   windows-build:
     runs-on: ubuntu-latest
     steps:
@@ -223,7 +279,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [macos, linux, windows-build, windows-test, web]
+    needs: [macos, linux, wayland, windows-build, windows-test, web]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -255,9 +311,10 @@ jobs:
             echo "- **macOS 11 and later:** unzip \`screensaver-mesh-$VERSION-macos.zip\` and double-click \`Mesh.saver\`. It isn't notarized, so the first time, click **Open Anyway** in System Settings → Privacy & Security."
             echo "- **Windows 10 and 11:** unzip \`screensaver-mesh-$VERSION-windows.zip\`, then right-click \`Mesh.scr\` and choose **Install**. It isn't code-signed, so click **More info → Run anyway** the first time."
             echo "- **Linux with XScreenSaver:** unpack \`screensaver-mesh-$VERSION-linux-x86_64.tar.gz\` and run \`./install.sh\`."
+            echo "- **Linux on Wayland (Hyprland, Sway, and other layer-shell compositors):** unpack \`screensaver-mesh-$VERSION-wayland-x86_64.tar.gz\` and run \`./install.sh\` for a live wallpaper."
             echo "- **Web pages:** \`npm install github:maxhayim/screensaver-mesh#$GITHUB_REF_NAME\` (see the guide's Web section)."
             echo "- Installing over an earlier version keeps your settings."
           } > notes.md
           cat notes.md
           gh release create "$GITHUB_REF_NAME" --title "$TITLE" --notes-file notes.md \
-            artifacts/macos/* artifacts/windows/* artifacts/linux/*
+            artifacts/macos/* artifacts/windows/* artifacts/linux/* artifacts/wayland/*
